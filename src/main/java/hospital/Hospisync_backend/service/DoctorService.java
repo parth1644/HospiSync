@@ -68,7 +68,10 @@ public class DoctorService {
     public List<DoctorResponseDto> getAvailableDoctors(String email) {
         Hospital hospital = getHospitalFromEmail(email);
         List<Doctor> doctors = doctorRepository.findByHospitalIdAndIsAvailableTrue(hospital.getId());
-        return doctors.stream().map(this::mapToResponseDto).collect(Collectors.toList());
+        return doctors.stream()
+                .map(this::mapToResponseDto)
+                .filter(d -> !"OFF_DUTY".equals(d.getAvailabilityType()))
+                .collect(Collectors.toList());
     }
 
     @Transactional
@@ -121,6 +124,27 @@ public class DoctorService {
         doctorRepository.delete(doctor);
     }
 
+    @Transactional
+    public DoctorResponseDto updateDoctor(Long doctorId, DoctorRequestDto dto, String email) {
+        Hospital hospital = getHospitalFromEmail(email);
+        Doctor doctor = doctorRepository.findByIdAndHospitalId(doctorId, hospital.getId())
+                .orElseThrow(() -> new RuntimeException("Doctor not found or access denied"));
+
+        doctor.setName(dto.getName());
+        doctor.setEmail(dto.getEmail());
+        doctor.setPhone(dto.getPhone());
+        doctor.setSpeciality(dto.getSpeciality());
+        doctor.setQualification(dto.getQualification());
+        doctor.setExperienceYears(dto.getExperienceYears());
+        doctor.setSafeLimit(dto.getSafeLimit() != null ? dto.getSafeLimit() : 12);
+        doctor.setShiftStart(dto.getShiftStart() != null ? dto.getShiftStart() : "08:00");
+        doctor.setShiftEnd(dto.getShiftEnd() != null ? dto.getShiftEnd() : "16:00");
+        doctor.setWorkDays(dto.getWorkDays() != null ? dto.getWorkDays() : "MON,TUE,WED,THU,FRI");
+
+        Doctor saved = doctorRepository.save(doctor);
+        return mapToResponseDto(saved);
+    }
+
     public List<DoctorResponseDto> getAvailableDoctorsForTransfer(Long hospitalId, String speciality) {
         List<Doctor> doctors;
         if (speciality != null && !speciality.isBlank()) {
@@ -129,13 +153,14 @@ public class DoctorService {
             doctors = doctorRepository.findByHospitalIdAndIsAvailableTrue(hospitalId);
         }
         return doctors.stream()
-                .filter(d -> d.getCurrentPatientCount() < d.getSafeLimit())
                 .map(this::mapToResponseDto)
+                .filter(d -> !"OFF_DUTY".equals(d.getAvailabilityType()))
+                .filter(d -> d.getCurrentPatientCount() < d.getSafeLimit())
                 .collect(Collectors.toList());
     }
 
     private DoctorResponseDto mapToResponseDto(Doctor doctor) {
-        String availabilityType = doctor.getAvailabilityType() != null ? doctor.getAvailabilityType() : "PRESENT";
+        String availabilityType = calculateCurrentAvailability(doctor);
         String color = "green";
         if ("ON_CALL".equals(availabilityType)) color = "amber";
         if ("OFF_DUTY".equals(availabilityType)) color = "red";
@@ -154,9 +179,46 @@ public class DoctorService {
                 .availabilityType(availabilityType)
                 .shiftInfo(formatShiftInfo(doctor))
                 .availabilityColor(color)
+                .shiftStart(doctor.getShiftStart())
+                .shiftEnd(doctor.getShiftEnd())
+                .workDays(doctor.getWorkDays())
                 .build();
         dto.calculateCapacity();
         return dto;
+    }
+
+    private String calculateCurrentAvailability(Doctor doctor) {
+        String dbType = doctor.getAvailabilityType() != null ? doctor.getAvailabilityType() : "PRESENT";
+
+        // Prioritize manual overrides. If it's ON_CALL or OFF_DUTY, respect it.
+        // We only auto-calculate the "PRESENT" status based on time.
+        if ("ON_CALL".equals(dbType) || "OFF_DUTY".equals(dbType)) {
+            return dbType;
+        }
+
+        if (doctor.getShiftStart() == null || doctor.getShiftEnd() == null || doctor.getWorkDays() == null) {
+            return dbType;
+        }
+
+        try {
+            LocalTime now = LocalTime.now();
+            java.time.DayOfWeek day = java.time.LocalDate.now().getDayOfWeek();
+            String dayStr = day.name().substring(0, 3); // MON, TUE, etc.
+
+            boolean isWorkDay = doctor.getWorkDays().contains(dayStr);
+            if (!isWorkDay) return "OFF_DUTY";
+
+            LocalTime start = LocalTime.parse(doctor.getShiftStart());
+            LocalTime end = LocalTime.parse(doctor.getShiftEnd());
+
+            if (now.isAfter(start) && now.isBefore(end)) {
+                return "PRESENT";
+            } else {
+                return "OFF_DUTY";
+            }
+        } catch (Exception e) {
+            return dbType;
+        }
     }
 
     private String formatShiftInfo(Doctor doctor) {

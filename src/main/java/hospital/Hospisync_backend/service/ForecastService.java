@@ -25,7 +25,7 @@ public class ForecastService {
     private final HospitalRepository hospitalRepository;
     private final PatientAdmissionRepository patientAdmissionRepository;
     private final BedCategoryService bedCategoryService;
-    private final NotificationService notificationService;
+    private final hospital.Hospisync_backend.repository.NotificationRepository notificationRepository;
 
     public ForecastResponse getForecast(Long hospitalId) {
         Hospital hospital = hospitalRepository.findById(hospitalId)
@@ -101,7 +101,32 @@ public class ForecastService {
         if (occupancyRate >= 90) {
             response.setScarcityAlert(true);
             response.setAlertMessage(String.format("CRITICAL: Predicted next-day occupancy reaches %.1f%%. Immediate action required!", occupancyRate));
-            notificationService.createNotification(hospital, response.getAlertMessage(), "SCARCITY_WARNING");
+            
+            // Deduplicated Scarcity Warning
+            java.util.Optional<hospital.Hospisync_backend.model.Notification> existing = 
+                notificationRepository.findByHospital_IdAndNotificationTypeAndIsRead(
+                    hospital.getId(),
+                    "SCARCITY_WARNING",
+                    false
+                );
+
+            if (existing.isPresent()) {
+                hospital.Hospisync_backend.model.Notification n = existing.get();
+                n.setTriggerCount(n.getTriggerCount() + 1);
+                n.setLastTriggered(java.time.LocalDateTime.now());
+                n.setMessage(response.getAlertMessage());
+                notificationRepository.save(n);
+            } else {
+                hospital.Hospisync_backend.model.Notification n = new hospital.Hospisync_backend.model.Notification();
+                n.setHospital(hospital);
+                n.setNotificationType("SCARCITY_WARNING");
+                n.setType("SYSTEM");
+                n.setMessage(response.getAlertMessage());
+                n.setIsRead(false);
+                n.setTriggerCount(1);
+                n.setLastTriggered(java.time.LocalDateTime.now());
+                notificationRepository.save(n);
+            }
         } else if (occupancyRate >= 75) {
             response.setScarcityAlert(true);
             response.setAlertMessage(String.format("WARNING: High next-day occupancy (%.1f%%) predicted.", occupancyRate));

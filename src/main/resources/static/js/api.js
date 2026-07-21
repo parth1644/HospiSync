@@ -31,8 +31,7 @@ function getHospitalId() {
     }
     
     // Strict sanitization for stringified falsy values and numeric checks
-    if (!id || String(id) === "undefined" || String(id) === "null" || String(id).trim() === "") {
-        console.warn("getHospitalId: Hospital ID is invalid/missing", id);
+    if (!id || id === 'undefined' || id === 'null') {
         return null;
     }
     
@@ -118,12 +117,12 @@ async function apiRequest(path, options = {}) {
     });
 
     if (response.status === 401) {
-        console.log('Token expired — redirecting');
+
         clearAuth();
         localStorage.removeItem('activeTransferId');
         localStorage.removeItem('triedHospitals');
         localStorage.removeItem('activeTransferSpeciality');
-        alert('Your session has expired. Please log in again.');
+        alert('Authentication Required: Your session has expired. Please log in again.');
         window.location.href = '/login.html';
         return null;
     }
@@ -149,7 +148,12 @@ async function apiRequest(path, options = {}) {
 function apiGet(path) {
 
     return apiRequest(path, {
-        method: 'GET'
+        method: 'GET',
+        headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        }
     });
 
 }

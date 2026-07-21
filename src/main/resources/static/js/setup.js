@@ -48,6 +48,20 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     renderDeptGrid();
+
+    // Listen for speciality change for "Other" option
+    const specSelect = document.getElementById('docSpeciality');
+    const customContainer = document.getElementById('customSpecialityContainer');
+    if (specSelect && customContainer) {
+        specSelect.addEventListener('change', (e) => {
+            if (e.target.value === 'OTHER') {
+                customContainer.classList.remove('hidden');
+                document.getElementById('docCustomSpeciality').focus();
+            } else {
+                customContainer.classList.add('hidden');
+            }
+        });
+    }
 });
 
 function renderDeptGrid() {
@@ -105,43 +119,38 @@ function renderDoctorSpecialityOptions() {
     const select = document.getElementById('docSpeciality');
     if (!select) return;
     
-    // Get currently selected department names
-    const selectedDeptNames = DEPARTMENTS
-        .filter(d => selectedDepts.has(d.id))
-        .map(d => d.name.toUpperCase());
-        
+    // Get currently selected departments (including custom ones)
+    const selectedList = DEPARTMENTS.filter(d => selectedDepts.has(d.id));
+    const selectedNames = selectedList.map(d => d.name);
+    
     let html = `<option value="" disabled selected>Select a speciality...</option>`;
     
-    // Group specialities into "In your hospital" and "Other"
-    let inHospital = [];
-    let others = [];
-    
-    SPECIALITIES.forEach(s => {
-        let isSelected = selectedDeptNames.some(name => name.includes(s.toUpperCase()) || s.toUpperCase().includes(name));
-        if (s.toUpperCase() === 'GENERAL' && selectedDeptNames.some(n => n.includes('GENERAL WARD'))) isSelected = true;
-        
-        if (isSelected) {
-            inHospital.push(s);
-        } else {
-            others.push(s);
-        }
-    });
-    
-    if (inHospital.length > 0) {
+    // Group 1: Hospital's Selected Departments
+    if (selectedNames.length > 0) {
         html += `<optgroup label="Your Selected Departments">`;
-        inHospital.forEach(s => {
-            html += `<option value="${s.toUpperCase()}">${s}</option>`;
+        selectedNames.forEach(name => {
+            html += `<option value="${name.toUpperCase()}">${name}</option>`;
         });
         html += `</optgroup>`;
     }
     
-    if (others.length > 0) {
+    // Group 2: Other Available Specialities
+    const otherSpecs = SPECIALITIES.filter(s => 
+        !selectedNames.some(n => n.toUpperCase().includes(s.toUpperCase()) || s.toUpperCase().includes(n.toUpperCase()))
+    );
+    
+    if (otherSpecs.length > 0) {
         html += `<optgroup label="Other Available Specialities">`;
-        others.forEach(s => {
+        otherSpecs.forEach(s => {
             html += `<option value="${s.toUpperCase()}">${s}</option>`;
         });
         html += `</optgroup>`;
     }
+
+    // "Other" option for custom entries
+    html += `<optgroup label="Still can't find?">`;
+    html += `<option value="OTHER">Other / Custom Speciality...</option>`;
+    html += `</optgroup>`;
     
     select.innerHTML = html;
 }
@@ -154,9 +163,21 @@ async function addDoctorSetup(event) {
     btn.innerHTML = `<div class="loader" style="width:20px;height:20px;border-width:2px;"></div>`;
     btn.disabled = true;
     
+    let speciality = document.getElementById('docSpeciality').value;
+    if (speciality === 'OTHER') {
+        const customVal = document.getElementById('docCustomSpeciality').value.trim();
+        if (!customVal) {
+            showToast('Please enter your custom speciality name', 'error');
+            btn.innerHTML = origText;
+            btn.disabled = false;
+            return;
+        }
+        speciality = customVal.toUpperCase();
+    }
+
     const docData = {
         name: document.getElementById('docName').value.trim(),
-        speciality: document.getElementById('docSpeciality').value,
+        speciality: speciality,
         qualification: document.getElementById('docQualification').value.trim(),
         phone: document.getElementById('docPhone').value.trim(),
         experienceYears: parseInt(document.getElementById('docExperience').value) || 0,
@@ -181,6 +202,7 @@ async function addDoctorSetup(event) {
         if (response.ok) {
             addedDoctors.push(data);
             document.getElementById('addDoctorForm').reset();
+            document.getElementById('customSpecialityContainer').classList.add('hidden');
             renderAddedDoctors();
             showToast('Doctor added successfully!', 'success');
         } else {

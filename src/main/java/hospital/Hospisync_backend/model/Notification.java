@@ -29,9 +29,19 @@ public class Notification {
     @Column(nullable = false)
     private String type; // DATA_REMINDER, TRANSFER_REQUEST, SYSTEM
 
+    @Column(name = "notification_type")
+    private String notificationType; // e.g. "BED_UPDATE_WARNING"
+
     @Builder.Default
     @Column(name = "is_read", nullable = false)
     private Boolean isRead = false;
+
+    @Builder.Default
+    @Column(name = "trigger_count")
+    private Integer triggerCount = 1;
+
+    @Column(name = "last_triggered")
+    private LocalDateTime lastTriggered;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -39,5 +49,8 @@ public class Notification {
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
+        if (this.lastTriggered == null) {
+            this.lastTriggered = LocalDateTime.now();
+        }
     }
 }

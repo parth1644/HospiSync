@@ -45,7 +45,7 @@ public class AuthService {
 
         userRepository.save(user);
 
-        String token = jwtUtil.generateToken(user.getEmail(), hospital.getId());
+        String token = jwtUtil.generateToken(user.getEmail(), hospital.getId(), user.getId(), user.getRole());
 
         return AuthResponse.builder()
                 .token(token)
@@ -65,7 +65,7 @@ public class AuthService {
         }
 
         Hospital hospital = user.getHospital();
-        String token = jwtUtil.generateToken(user.getEmail(), hospital.getId());
+        String token = jwtUtil.generateToken(user.getEmail(), hospital.getId(), user.getId(), user.getRole());
 
         System.out.println("DEBUG: Login for " + user.getEmail() + ", setupCompleted: " + hospital.isSetupCompleted());
 

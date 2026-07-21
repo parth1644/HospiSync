@@ -23,6 +23,9 @@ public class DoctorResponseDto {
     private String availabilityType;
     private String shiftInfo;
     private String availabilityColor;
+    private String shiftStart;
+    private String shiftEnd;
+    private String workDays;
 
     public void calculateCapacity() {
         this.remainingCapacity = (this.safeLimit != null ? this.safeLimit : 12) - (this.currentPatientCount != null ? this.currentPatientCount : 0);

@@ -15,13 +15,14 @@
 
 spring:
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/hospisync}
+    url: ${DB_URL:jdbc:mysql://localhost:3306/hospisync?createDatabaseIfNotExist=true}
     username: ${DB_USERNAME:root}
     # This format tells Spring: "Use environment variable DB_PASSWORD,
     # but if it's missing, use the password string after the colon."
     password: ${DB_PASSWORD:root}
 
     driver-class-name: com.mysql.cj.jdbc.Driver
+    # TODO: Move to environment variables before production deployment
 
   jpa:
     database-platform: org.hibernate.dialect.MySQLDialect
@@ -47,6 +48,8 @@ spring:
 
 logging:
   level:
+    root: WARN
+    hospital: INFO
     org.springframework.web: INFO
 
 server:

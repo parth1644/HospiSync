@@ -80,6 +80,11 @@ public class DoctorController {
         }
     }
 
+    @PutMapping("/{doctorId}")
+    public ResponseEntity<DoctorResponseDto> updateDoctor(@PathVariable Long doctorId, @RequestBody DoctorRequestDto dto) {
+        return ResponseEntity.ok(doctorService.updateDoctor(doctorId, dto, getCurrentUserEmail()));
+    }
+
     @DeleteMapping("/{doctorId}")
     public ResponseEntity<Map<String, String>> deleteDoctor(@PathVariable Long doctorId) {
         try {

@@ -6,10 +6,41 @@
 
 let allDoctors = [];
 
+const formatTimeTo12h = (timeStr) => {
+    if (!timeStr) return "No fixed shift";
+    let [hours, minutes] = timeStr.split(':');
+    hours = parseInt(hours);
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12; // '0' should be '12'
+    return `${hours}:${minutes} ${ampm}`;
+};
+
+
 document.addEventListener('DOMContentLoaded', () => {
     // Initial load
     initDashboardInfo();
     loadDoctors();
+    
+    // Auto-refresh every 30 seconds for real-time availability updates
+    setInterval(loadDoctors, 30000);
+    
+    // Load hospital categories for speciality dropdown
+    loadSpecialityOptions();
+
+    // Listen for speciality change for "Other" option
+    const specSelect = document.getElementById('doctorSpeciality');
+    const customContainer = document.getElementById('customSpecialityContainer');
+    if (specSelect && customContainer) {
+        specSelect.addEventListener('change', (e) => {
+            if (e.target.value === 'OTHER') {
+                customContainer.classList.remove('hidden');
+                document.getElementById('docCustomSpeciality').focus();
+            } else {
+                customContainer.classList.add('hidden');
+            }
+        });
+    }
 
     // Form Toggle Logic
     const toggleBtn = document.getElementById('toggleAddFormBtn');
@@ -18,9 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (toggleBtn) {
         toggleBtn.addEventListener('click', () => {
-            formContent.classList.toggle('expanded');
-            chevron.textContent = formContent.classList.contains('expanded') ? 'remove_circle' : 'add_circle';
-            chevron.classList.toggle('text-primary');
+             openAddModal();
         });
     }
 
@@ -30,13 +59,40 @@ document.addEventListener('DOMContentLoaded', () => {
         addDoctorForm.addEventListener('submit', handleAddDoctor);
     }
 
+    const editDoctorForm = document.getElementById('editDoctorForm');
+    if (editDoctorForm) {
+        editDoctorForm.addEventListener('submit', handleEditDoctor);
+    }
+
     // Filters
     ['filterSearch', 'filterSpeciality', 'filterStatus'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('input', applyFilters);
         if (el && el.tagName === 'SELECT') el.addEventListener('change', applyFilters);
     });
+
+    // Global Click Listener for status menus dismissal
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.status-dropdown-container')) {
+             document.querySelectorAll('[id^="statusMenu-"]').forEach(menu => {
+                 menu.classList.add('hidden');
+             });
+        }
+    });
 });
+
+window.toggleStatusMenu = function(event, doctorId) {
+    event.stopPropagation();
+    const menu = document.getElementById('statusMenu-' + doctorId);
+    if (!menu) return;
+    
+    // Close other menus
+    document.querySelectorAll('[id^="statusMenu-"]').forEach(m => {
+        if (m.id !== 'statusMenu-' + doctorId) m.classList.add('hidden');
+    });
+    
+    menu.classList.toggle('hidden');
+};
 
 function initDashboardInfo() {
     const hospitalName = getHospitalName() || "Hospital Admin";
@@ -58,6 +114,67 @@ async function loadDoctors() {
         showToast("Error loading clinical roster", "error");
     } finally {
         showLoading(false);
+    }
+}
+
+const DEFAULT_SPECIALITIES = [
+    'ICU', 'Cardiology', 'Neurology', 'General', 
+    'Emergency', 'Child Care', 'Daycare', 'Essential Care'
+];
+
+async function loadSpecialityOptions() {
+    const hospitalId = getHospitalId();
+    if (!hospitalId) return;
+
+    try {
+        const dashboardData = await apiGet(`/hospital/${hospitalId}/dashboard`);
+        const categories = dashboardData.categories || [];
+        const selectedNames = categories.map(c => c.name);
+
+        const select = document.getElementById('doctorSpeciality');
+        const filterSelect = document.getElementById('filterSpeciality');
+        
+        let htmlInput = `<option value="" disabled selected>Select a speciality...</option>`;
+        let htmlFilter = `<option value="">All Specialities</option>`;
+        
+        // Group 1: Hospital's Selected Departments
+        if (selectedNames.length > 0) {
+            let groupHtml = `<optgroup label="Your Selected Departments">`;
+            selectedNames.forEach(name => {
+                groupHtml += `<option value="${name.toUpperCase()}">${name}</option>`;
+            });
+            groupHtml += `</optgroup>`;
+            htmlInput += groupHtml;
+            htmlFilter += groupHtml;
+        }
+        
+        // Group 2: Other Available Specialities
+        const otherSpecs = DEFAULT_SPECIALITIES.filter(s => 
+            !selectedNames.some(n => n.toUpperCase().includes(s.toUpperCase()) || s.toUpperCase().includes(n.toUpperCase()))
+        );
+        
+        if (otherSpecs.length > 0) {
+            let groupHtml = `<optgroup label="Other Available Specialities">`;
+            otherSpecs.forEach(s => {
+                groupHtml += `<option value="${s.toUpperCase()}">${s}</option>`;
+            });
+            groupHtml += `</optgroup>`;
+            htmlInput += groupHtml;
+            htmlFilter += groupHtml;
+        }
+
+        // "Other" option for input only
+        htmlInput += `<optgroup label="Still can't find?">`;
+        htmlInput += `<option value="OTHER">Other / Custom Speciality...</option>`;
+        htmlInput += `</optgroup>`;
+        
+        if (select) select.innerHTML = htmlInput;
+        if (filterSelect) filterSelect.innerHTML = htmlFilter;
+
+        const editSelect = document.getElementById('editDoctorSpeciality');
+        if (editSelect) editSelect.innerHTML = htmlInput;
+    } catch (e) {
+        console.error("Failed to load speciality categories", e);
     }
 }
 
@@ -128,99 +245,184 @@ function createDoctorCard(doc) {
 
     let cardBgClass = 'bg-white border-slate-100';
     if (doc.availabilityType === 'ON_CALL') {
-        cardBgClass = 'bg-amber-50/50 border-amber-200';
+        cardBgClass = 'bg-amber-50/30 border-amber-100 shadow-amber-900/5';
     } else if (doc.availabilityType === 'OFF_DUTY') {
-        cardBgClass = 'bg-slate-50 opacity-75 border-slate-200';
+        cardBgClass = 'bg-slate-50/50 opacity-80 border-slate-100';
     }
 
-    div.className = `${cardBgClass} p-6 rounded-xl shadow-ambient border ${isAtLimit && doc.availabilityType !== 'OFF_DUTY' ? '!border-error !border-2' : ''} hover:shadow-bold transition-all relative group`;
+    div.className = `doctor-card ${cardBgClass} p-6 rounded-3xl shadow-ambient border ${isAtLimit && doc.availabilityType !== 'OFF_DUTY' ? '!border-error !border-2' : ''} relative group bg-white`;
     
     const specialityColors = {
-        'ICU': 'bg-red-100 text-red-700',
-        'Cardiology': 'bg-blue-100 text-blue-700',
-        'Neurology': 'bg-purple-100 text-purple-700',
-        'General': 'bg-slate-100 text-slate-700',
-        'Emergency': 'bg-orange-100 text-orange-700',
-        'Child Care': 'bg-pink-100 text-pink-700',
-        'Daycare': 'bg-teal-100 text-teal-700',
-        'Essential Care': 'bg-indigo-100 text-indigo-700'
+        'ICU': 'bg-red-50 text-red-600 border-red-100',
+        'Cardiology': 'bg-sky-50 text-sky-600 border-sky-100',
+        'Neurology': 'bg-purple-50 text-purple-600 border-purple-100',
+        'General': 'bg-slate-50 text-slate-600 border-slate-100',
+        'Emergency': 'bg-orange-50 text-orange-600 border-orange-100',
+        'Child Care': 'bg-rose-50 text-rose-600 border-rose-100',
+        'Daycare': 'bg-emerald-50 text-emerald-600 border-emerald-100',
+        'Essential Care': 'bg-indigo-50 text-indigo-600 border-indigo-100'
+    };
+    const specClass = specialityColors[doc.speciality] || 'bg-slate-50 text-slate-600 border-slate-100';
+    const initial = doc.name ? doc.name.charAt(0) : 'D';
+
+    const getStatusConfig = (type) => {
+        const configs = {
+            'PRESENT': { label: 'ACTIVE', color: 'bg-green-500', shadow: 'shadow-green-500/20', icon: '<circle cx="12" cy="12" r="8"/>', pulse: true },
+            'ON_CALL': { label: 'ON-CALL', color: 'bg-amber-500', shadow: 'shadow-amber-500/20', icon: '<circle cx="12" cy="12" r="8"/>', pulse: false },
+            'OFF_DUTY': { label: 'OFF DUTY', color: 'bg-slate-400', shadow: 'shadow-slate-400/20', icon: '<circle cx="12" cy="12" r="8"/><path d="M15 9l-6 6M9 9l6 6"/>', pulse: false }
+        };
+        return configs[type] || configs['OFF_DUTY'];
     };
 
-    const specClass = specialityColors[doc.speciality] || 'bg-slate-100 text-slate-700';
-    const initial = doc.name ? doc.name.charAt(0) : 'D';
-    
-    let availabilityBadge = '';
-    if (doc.availabilityType === 'PRESENT') {
-        availabilityBadge = `<span class="bg-green-100 text-green-700 border border-green-200 px-2 py-0.5 rounded-full flex items-center gap-1 text-[9px] font-black uppercase tracking-wider"><span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span> PRESENT</span>`;
-    } else if (doc.availabilityType === 'ON_CALL') {
-        availabilityBadge = `<span class="bg-amber-100 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full flex items-center gap-1 text-[9px] font-black uppercase tracking-wider"><span class="w-1.5 h-1.5 bg-amber-500 rounded-full"></span> ON-CALL</span>`;
-    } else {
-        availabilityBadge = `<span class="bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 rounded-full flex items-center gap-1 text-[9px] font-black uppercase tracking-wider"><span class="w-1.5 h-1.5 bg-red-500 rounded-full"></span> OFF DUTY</span>`;
-    }
-    
-    let manualOverrideHtml = `
-        <select onchange="updateDocAvailabilityType(${doc.id}, this.value)" class="text-[10px] font-bold py-1 px-2 border-slate-200 rounded-lg text-slate-600 bg-white shadow-sm focus:ring-1 focus:ring-primary focus:border-primary">
-            <option value="PRESENT" ${doc.availabilityType==='PRESENT'?'selected':''}>🟢 PRESENT</option>
-            <option value="ON_CALL" ${doc.availabilityType==='ON_CALL'?'selected':''}>🟡 ON-CALL</option>
-            <option value="OFF_DUTY" ${doc.availabilityType==='OFF_DUTY'?'selected':''}>🔴 OFF DUTY</option>
-        </select>
+    const cfg = getStatusConfig(doc.availabilityType);
+    const availabilityBadge = `
+        <div class="relative inline-block status-dropdown-container">
+            <button onclick="toggleStatusMenu(event, ${doc.id})" class="${cfg.color} hover:brightness-110 text-white px-3 py-1 rounded-full flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest shadow-lg ${cfg.shadow} ${cfg.pulse ? 'animate-pulse' : ''} transition-all active:scale-95 group/status-btn">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="${doc.availabilityType==='PRESENT'?'currentColor':'none'}" stroke="currentColor" stroke-width="4">${cfg.icon}</svg> 
+                ${cfg.label}
+                <span class="material-symbols-outlined text-[10px] ml-1 group-hover/status-btn:translate-y-0.5 transition-transform">expand_more</span>
+            </button>
+            <div id="statusMenu-${doc.id}" class="hidden absolute left-0 top-full mt-2 w-48 bg-white rounded-2xl shadow-bold border border-slate-100 z-[1001] py-2 overflow-hidden backdrop-blur-3xl">
+                <button onclick="updateDocAvailabilityType(${doc.id}, 'PRESENT')" class="w-full px-4 py-2 text-left text-[10px] font-black uppercase tracking-widest hover:bg-green-50 text-slate-600 hover:text-green-600 flex items-center gap-3 transition-colors ${doc.availabilityType === 'PRESENT' ? 'bg-green-50 text-green-600' : ''}">
+                    <span class="w-2 h-2 rounded-full bg-green-500"></span> ACTIVE (PRESENT)
+                </button>
+                <button onclick="updateDocAvailabilityType(${doc.id}, 'ON_CALL')" class="w-full px-4 py-2 text-left text-[10px] font-black uppercase tracking-widest hover:bg-amber-50 text-slate-600 hover:text-amber-600 flex items-center gap-3 transition-colors ${doc.availabilityType === 'ON_CALL' ? 'bg-amber-50 text-amber-600' : ''}">
+                    <span class="w-2 h-2 rounded-full bg-amber-500"></span> ON-CALL (EMERGENCY)
+                </button>
+                <button onclick="updateDocAvailabilityType(${doc.id}, 'OFF_DUTY')" class="w-full px-4 py-2 text-left text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 text-slate-600 hover:text-slate-900 flex items-center gap-3 transition-colors ${doc.availabilityType === 'OFF_DUTY' ? 'bg-slate-100 text-slate-900' : ''}">
+                    <span class="w-2 h-2 rounded-full bg-slate-400"></span> OFF DUTY
+                </button>
+            </div>
+        </div>
     `;
 
+    let safetyWarning = '';
+    if (doc.availabilityType === 'ON_CALL' && (doc.availabilityStatus === 'NEAR_LIMIT' || doc.availabilityStatus === 'AT_LIMIT')) {
+        safetyWarning = `
+            <div class="mb-6" style="background: #FEF3C7; border-left: 3px solid #F59E0B; border-radius: 6px; padding: 8px 12px; color: #B45309; font-size: 11px; font-weight: 600;">
+                ⚠ On-Call & near limit — consider reassigning
+            </div>
+        `;
+    }
+
+    const shiftDisplay = (doc.shiftStart && doc.shiftEnd)
+        ? `${formatTimeTo12h(doc.shiftStart.substring(0, 5))} → ${formatTimeTo12h(doc.shiftEnd.substring(0, 5))}`
+        : "No fixed shift";
+
+    const expHtml = (doc.experienceYears && doc.experienceYears > 0)
+        ? `<span class="text-[10px] text-slate-400 font-bold tracking-widest uppercase flex items-center gap-1.5 ml-1">
+             <span class="w-1 h-1 rounded-full bg-slate-300"></span> ${doc.experienceYears} yr exp
+           </span>`
+        : '';
+
     div.innerHTML = `
-        <div class="flex items-start justify-between mb-6">
-            <div class="flex items-center gap-4">
-                <div class="w-12 h-12 rounded-full border-2 border-white shadow-sm flex items-center justify-center text-xl font-black ${specClass.split(' ')[0]} ${specClass.split(' ')[1]}">
-                    ${initial}
+        <div class="flex items-start justify-between mb-8 group/card-head">
+            <div class="flex items-center gap-5">
+                <div class="w-16 h-16 rounded-[2rem] shadow-2xl shadow-slate-200/50 flex items-center justify-center text-2xl font-black ${specClass.split(' ')[0]} ${specClass.split(' ')[1]} border-2 ${specClass.split(' ')[2]} relative">
+                     <span class="relative z-10">${initial}</span>
+                     <div class="absolute inset-0 rounded-[2rem] bg-current opacity-10 blur-xl group-hover:blur-2xl transition-all duration-500"></div>
                 </div>
                 <div>
-                    <div class="flex items-center gap-2 mb-1">
-                        <h4 class="font-bold text-slate-900 tracking-tight">${doc.name}</h4>
+                    <div class="flex items-center gap-3 mb-2">
+                        <h4 class="text-lg font-black text-slate-900 tracking-tight leading-none capitalize">${doc.name?.toLowerCase().replace(/^dr\.?\s+/i, '')}</h4>
                         ${availabilityBadge}
                     </div>
-                    <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${specClass}">
-                        ${doc.speciality}
-                    </span>
-                    <p class="text-[10px] text-slate-500 mt-1 font-bold">Shift: ${doc.shiftInfo || 'N/A'}</p>
-                    <p class="text-[9px] text-slate-400 font-medium italic">Auto-managed by scheduler</p>
+                    <div class="flex items-center gap-2">
+                        <span class="px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest border-2 ${specClass} shadow-sm backdrop-blur-sm">
+                            ${doc.speciality}
+                        </span>
+                        ${expHtml}
+                    </div>
                 </div>
             </div>
-            <button onclick="confirmDelete(${doc.id})" class="text-slate-300 hover:text-error transition-colors p-1">
-                <span class="material-symbols-outlined text-sm">delete</span>
+            <div class="flex items-center gap-2.5 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0">
+                <button onclick="openEditModal(${doc.id})" class="w-10 h-10 rounded-2xl bg-white text-slate-400 hover:text-primary hover:bg-primary/5 border border-slate-100 shadow-sm transition-all flex items-center justify-center hover:scale-110 active:scale-95 group/edit">
+                    <span class="material-symbols-outlined text-lg group-hover/edit:rotate-12 transition-transform">edit_note</span>
+                </button>
+                <button onclick="confirmDelete(${doc.id})" class="w-10 h-10 rounded-2xl bg-white text-slate-400 hover:text-error hover:bg-error/5 border border-slate-100 shadow-sm transition-all flex items-center justify-center hover:scale-110 active:scale-95 group/del">
+                    <span class="material-symbols-outlined text-lg group-hover/del:scale-125 transition-transform">delete_sweep</span>
+                </button>
+            </div>
+        </div>
+
+        ${safetyWarning}
+
+        <div class="grid grid-cols-2 gap-4 mb-8">
+            <div class="bg-slate-50/70 backdrop-blur-md p-4 rounded-3xl border border-white/60 shadow-sm group/info relative overflow-hidden">
+                <p class="text-[9px] text-slate-400 font-black uppercase tracking-widest mb-2 relative z-10 flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[10px]">schedule</span> Standard Shift
+                </p>
+                <p class="text-xs text-slate-800 font-black tracking-tight relative z-10">
+                    ${shiftDisplay}
+                </p>
+                <div class="absolute -right-4 -bottom-4 text-slate-300 opacity-10 group-hover:scale-110 transition-transform duration-700">
+                    <span class="material-symbols-outlined text-5xl">pace</span>
+                </div>
+            </div>
+            <div class="bg-slate-50/70 backdrop-blur-md p-4 rounded-3xl border border-white/60 shadow-sm group/info-2 relative overflow-hidden">
+                <p class="text-[9px] text-slate-400 font-black uppercase tracking-widest mb-2 relative z-10 flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[10px]">verified</span> Credentials
+                </p>
+                <p class="text-xs text-slate-800 font-black tracking-tight relative z-10">
+                    ${doc.qualification || 'Senior Consultant'}
+                </p>
+                <div class="absolute -right-4 -bottom-4 text-slate-300 opacity-10 group-hover:scale-110 transition-transform duration-700">
+                    <span class="material-symbols-outlined text-5xl">school</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="space-y-5 mb-8">
+            <div class="flex justify-between items-end">
+                <div>
+                    <h5 class="text-2xl font-black text-slate-900 tracking-tighter flex items-center gap-2">
+                        ${doc.currentPatientCount}
+                        <span class="text-slate-200 text-base font-bold">/</span>
+                        <span class="text-slate-400 text-lg font-bold">${doc.safeLimit}</span>
+                    </h5>
+                    <p class="text-[10px] text-slate-400 font-black uppercase tracking-widest">PATIENT LOAD</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-[10px] font-black uppercase tracking-widest ${limitColor} mb-2 flex items-center justify-end gap-1.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-current ${loadPercent >= 100 ? 'animate-ping' : ''}"></span>
+                        ${limitText}
+                    </p>
+                    <div class="flex gap-1.5 justify-end">
+                         ${Array(5).fill(0).map((_, i) => `<div class="w-2.5 h-2.5 rounded-lg rotate-45 border-2 ${i < Math.round(loadPercent/20) ? (loadColor.replace('bg-', 'bg-') + ' border-transparent') : 'border-slate-100 bg-transparent'} transition-all duration-1000 delay-[${i*100}ms]"></div>`).join('')}
+                    </div>
+                </div>
+            </div>
+            <div class="h-3 w-full bg-slate-100 rounded-2xl overflow-hidden p-0.5 border border-white shadow-inner">
+                <div class="${loadColor} h-full transition-all duration-1000 ease-in-out rounded-2xl shadow-lg relative overflow-hidden" style="width: ${loadPercent}%">
+                    <div class="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white p-5 rounded-[2.5rem] border-2 border-slate-50 shadow-ambient mb-8 flex items-center justify-between group/sync hover:border-primary/20 transition-colors">
+            <div class="flex-1">
+                <p class="text-[9px] text-slate-400 font-black uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-[12px]">medical_services</span> UPDATE PATIENT COUNT
+                </p>
+                <div class="flex items-center gap-5">
+                    <button onclick="decrementLoad(${doc.id})" class="w-10 h-10 rounded-2xl bg-slate-50 text-slate-600 text-xl font-bold flex items-center justify-center hover:bg-slate-900 hover:text-white transition-all transform active:scale-90 shadow-sm">−</button>
+                    <input type="number" id="loadInput-${doc.id}" value="${doc.currentPatientCount}" min="0" max="${doc.safeLimit}" class="w-14 bg-transparent border-none text-center font-black text-slate-900 text-xl focus:ring-0 p-0 tracking-tighter">
+                    <button onclick="incrementLoad(${doc.id})" class="w-10 h-10 rounded-2xl bg-slate-50 text-slate-600 text-xl font-bold flex items-center justify-center hover:bg-slate-900 hover:text-white transition-all transform active:scale-90 shadow-sm">+</button>
+                </div>
+            </div>
+            <button onclick="saveLoad(${doc.id})" class="px-8 py-4 bg-slate-900 text-white rounded-3xl text-[10px] font-black uppercase tracking-widest shadow-2xl shadow-slate-900/30 hover:bg-primary hover:shadow-primary/30 active:scale-95 transition-all flex items-center gap-2 group/btn">
+                 SAVE
             </button>
         </div>
 
-        <div class="mb-4">
-            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Qualifications</p>
-            <p class="text-xs text-slate-600 font-medium">${doc.qualification || 'N/A'} • ${doc.experienceYears || 0} Years Exp</p>
-        </div>
-
-        <div class="space-y-3 mb-4">
-            <div class="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-400">
-                <span>Patient Load</span>
-                <span class="${isAtLimit ? 'text-error' : 'text-slate-600'}">${doc.currentPatientCount} / ${doc.safeLimit}</span>
-            </div>
-            <div class="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                <div class="${loadColor} h-full transition-all duration-500" style="width: ${loadPercent}%"></div>
-            </div>
-            <p class="text-[11px] font-bold ${limitColor}">
-                ${limitText}
-            </p>
-        </div>
-        
-        <div class="bg-slate-50 p-4 rounded-xl border border-slate-100 mb-6">
-            <label class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-3 block">Update current patients:</label>
+        <div class="pt-6 border-t border-slate-50 flex items-center justify-between">
             <div class="flex items-center gap-3">
-                <button onclick="decrementLoad(${doc.id})" class="w-8 h-8 rounded-full border border-slate-200 bg-white text-slate-600 text-lg flex items-center justify-center hover:bg-slate-100 transition-colors">−</button>
-                <input type="number" id="loadInput-${doc.id}" value="${doc.currentPatientCount}" min="0" max="${doc.safeLimit}" class="w-16 text-center border border-slate-200 rounded-lg py-1.5 font-bold text-slate-700 text-sm focus:ring-1 focus:ring-primary outline-none">
-                <button onclick="incrementLoad(${doc.id})" class="w-8 h-8 rounded-full border border-slate-200 bg-white text-slate-600 text-lg flex items-center justify-center hover:bg-slate-100 transition-colors">+</button>
-                <button onclick="saveLoad(${doc.id})" class="ml-2 px-4 py-1.5 bg-primary text-white border-none rounded-lg text-xs font-bold shadow-sm hover:bg-primary-container transition-colors active:scale-95">Save</button>
+                 <div class="w-2 h-2 rounded-full ${doc.isAvailable ? 'bg-success' : 'bg-slate-300'}"></div>
+                 <span class="text-[9px] text-slate-500 font-black uppercase tracking-widest">${doc.isAvailable ? '● Shift Active' : '○ Shift Inactive'}</span>
             </div>
-            <div class="text-[10px] text-slate-400 font-bold uppercase mt-2 text-right">Safe limit: ${doc.safeLimit}</div>
-        </div>
-
-        <div class="pt-4 border-t border-slate-50 flex items-center justify-between">
-            ${manualOverrideHtml}
-            <span class="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">ID: DOC-${doc.id}</span>
+            <div class="px-3 py-1 bg-white border border-slate-100 rounded-xl shadow-sm">
+                <span class="text-[9px] text-slate-400 font-bold tracking-widest uppercase">Clinical ID: D${doc.id}</span>
+            </div>
         </div>
     `;
 
@@ -239,13 +441,24 @@ async function handleAddDoctor(e) {
     const doctorName = document.getElementById('doctorName').value;
     const doctorEmail = document.getElementById('doctorEmail').value;
     const doctorPhone = document.getElementById('doctorPhone').value;
-    const doctorSpeciality = document.getElementById('doctorSpeciality').value;
+    
+    let doctorSpeciality = document.getElementById('doctorSpeciality').value;
+    if (doctorSpeciality === 'OTHER') {
+        const customVal = document.getElementById('docCustomSpeciality').value.trim();
+        if (!customVal) {
+            showToast("Please enter the custom speciality name", "error");
+            return;
+        }
+        doctorSpeciality = customVal.toUpperCase();
+    }
+
     const doctorQualification = document.getElementById('doctorQualification').value;
     const doctorExperience = document.getElementById('doctorExperience').value;
     const doctorSafeLimit = document.getElementById('doctorSafeLimit').value;
-    const doctorShiftStartTime = document.getElementById('doctorShiftStart')?.value || '08:00';
-    const doctorShiftEndTime = document.getElementById('doctorShiftEnd')?.value || '16:00';
-    const doctorWorkDays = document.getElementById('doctorWorkDays')?.value || 'MON,TUE,WED,THU,FRI';
+    const doctorAvailabilityType = document.getElementById('doctorAvailabilityType')?.value || 'PRESENT';
+    const doctorShiftStart = document.getElementById('doctorShiftStart').value || '08:00';
+    const doctorShiftEnd = document.getElementById('doctorShiftEnd').value || '16:00';
+    const doctorWorkDays = document.getElementById('doctorWorkDays').value || 'MON,TUE,WED,THU,FRI';
 
     const payload = {
         name: doctorName,
@@ -255,12 +468,20 @@ async function handleAddDoctor(e) {
         qualification: doctorQualification,
         experienceYears: parseInt(doctorExperience) || 0,
         safeLimit: parseInt(doctorSafeLimit) || 12,
-        shiftStart: doctorShiftStartTime + (doctorShiftStartTime.split(':').length === 2 ? ':00' : ''),
-        shiftEnd: doctorShiftEndTime + (doctorShiftEndTime.split(':').length === 2 ? ':00' : ''),
-        workDays: doctorWorkDays.toUpperCase()
+        shiftStart: doctorShiftStart + (doctorShiftStart.split(':').length === 2 ? ':00' : ''),
+        shiftEnd: doctorShiftEnd + (doctorShiftEnd.split(':').length === 2 ? ':00' : ''),
+        workDays: doctorWorkDays.toUpperCase(),
+        availabilityType: doctorAvailabilityType
     };
 
-    console.log("Attempting to add doctor with payload:", payload);
+    // console.log("Attempting to add doctor with payload:", payload);
+
+    // Loading state
+    const addDoctorBtn = document.querySelector('#addDoctorForm button[type="submit"]');
+    if (addDoctorBtn) {
+        addDoctorBtn.disabled = true;
+        addDoctorBtn.textContent = 'Adding...';
+    }
 
     showLoading(true);
     let response;
@@ -275,17 +496,14 @@ async function handleAddDoctor(e) {
             body: JSON.stringify(payload)
         });
 
-        console.log("Response status:", response.status);
+        // console.log("Response status:", response.status);
 
         if (response.ok) {
             const data = await response.json();
-            console.log("Success response data:", data);
-            showToast("Medical professional onboarded successfully", "success");
+            showToast("Doctor added successfully", "success");
             document.getElementById('addDoctorForm').reset();
-            const content = document.getElementById('addFormContent');
-            if (content && content.classList.contains('expanded')) {
-                document.getElementById('toggleAddFormBtn').click();
-            }
+            document.getElementById('customSpecialityContainer').classList.add('hidden');
+            closeAddModal();
             await loadDoctors();
         } else {
             const errorText = await response.text();
@@ -305,10 +523,18 @@ async function handleAddDoctor(e) {
         showToast('Connection error: ' + error.message, "error");
     } finally {
         showLoading(false);
+        // Restore button state
+        if (addDoctorBtn) {
+            addDoctorBtn.disabled = false;
+            addDoctorBtn.textContent = 'Add';
+        }
     }
 }
 
 async function updateDocAvailabilityType(id, type) {
+    const menu = document.getElementById('statusMenu-' + id);
+    if (menu) menu.classList.add('hidden');
+    
     const token = localStorage.getItem('token');
     try {
         const response = await fetch('/api/doctors/' + id + '/availability-type', {
@@ -431,4 +657,90 @@ async function saveLoad(doctorId) {
         console.error(e);
         showToast('Error updating load', 'error');
     }
+}
+
+function openEditModal(id) {
+    const doc = allDoctors.find(d => d.id === id);
+    if (!doc) return;
+
+    document.getElementById('editDoctorId').value = doc.id;
+    document.getElementById('editDoctorName').value = doc.name;
+    document.getElementById('editDoctorEmail').value = doc.email || '';
+    document.getElementById('editDoctorPhone').value = doc.phone || '';
+    document.getElementById('editDoctorSpeciality').value = (doc.speciality || '').toUpperCase();
+    document.getElementById('editDoctorQualification').value = doc.qualification || '';
+    document.getElementById('editDoctorExperience').value = doc.experienceYears || 0;
+    document.getElementById('editDoctorSafeLimit').value = doc.safeLimit || 12;
+    document.getElementById('editDoctorAvailabilityType').value = doc.availabilityType || 'PRESENT';
+    
+    // Process raw shift times (remove seconds if present)
+    const formatTime = (t) => t ? t.substring(0, 5) : '08:00';
+    document.getElementById('editDoctorShiftStart').value = formatTime(doc.shiftStart);
+    document.getElementById('editDoctorShiftEnd').value = formatTime(doc.shiftEnd);
+    document.getElementById('editDoctorWorkDays').value = doc.workDays || 'MON,TUE,WED,THU,FRI';
+
+    const modal = document.getElementById('editDoctorModal');
+    if (modal) modal.classList.add('active');
+}
+
+function closeEditModal() {
+    const modal = document.getElementById('editDoctorModal');
+    if (modal) modal.classList.remove('active');
+}
+
+async function handleEditDoctor(e) {
+    if (e) e.preventDefault();
+    
+    const id = document.getElementById('editDoctorId').value;
+    const token = localStorage.getItem('token');
+    
+    const payload = {
+        name: document.getElementById('editDoctorName').value,
+        email: document.getElementById('editDoctorEmail').value,
+        phone: document.getElementById('editDoctorPhone').value,
+        speciality: document.getElementById('editDoctorSpeciality').value,
+        qualification: document.getElementById('editDoctorQualification').value,
+        experienceYears: parseInt(document.getElementById('editDoctorExperience').value) || 0,
+        safeLimit: parseInt(document.getElementById('editDoctorSafeLimit').value) || 12,
+        shiftStart: document.getElementById('editDoctorShiftStart').value + ':00',
+        shiftEnd: document.getElementById('editDoctorShiftEnd').value + ':00',
+        workDays: document.getElementById('editDoctorWorkDays').value.toUpperCase(),
+        availabilityType: document.getElementById('editDoctorAvailabilityType').value
+    };
+
+    showLoading(true);
+    try {
+        const response = await fetch('/api/doctors/' + id, {
+            method: 'PUT',
+            headers: {
+                'Authorization': 'Bearer ' + token,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+            showToast("Records synchronized", "success");
+            closeEditModal();
+            loadDoctors();
+        } else {
+            const err = await response.json();
+            showToast(err.message || "Failed to update", "error");
+        }
+    } catch (err) {
+        console.error("Edit error:", err);
+        showToast("Access Denied", "error");
+    } finally {
+        showLoading(false);
+    }
+}
+
+function openAddModal() {
+    const modal = document.getElementById('addDoctorModal');
+    if (modal) modal.classList.add('active');
+}
+
+function closeAddModal() {
+    const modal = document.getElementById('addDoctorModal');
+    if (modal) modal.classList.remove('active');
 }

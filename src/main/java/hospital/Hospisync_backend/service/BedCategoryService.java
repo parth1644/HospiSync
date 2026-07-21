@@ -18,7 +18,7 @@ public class BedCategoryService {
 
     private final BedCategoryRepository bedCategoryRepository;
     private final HospitalRepository hospitalRepository;
-    private final NotificationService notificationService;
+    private final hospital.Hospisync_backend.repository.NotificationRepository notificationRepository;
 
     public List<BedCategory> getCategories(Long hospitalId) {
         return bedCategoryRepository.findByHospitalIdOrderByCategoryIdAsc(hospitalId);
@@ -112,12 +112,34 @@ public class BedCategoryService {
         // Trigger Smart Alert if capacity > 90%
         double currentOccupancy = getOccupancyRate(hospitalId);
         if (currentOccupancy >= 90.0) {
-            notificationService.createNotification(
-                    hospital,
-                    "⚠ Capacity Alert: Your hospital is currently operating at " + 
-                    Math.round(currentOccupancy) + "% capacity. Consider transferring patients.",
-                    "WARNING"
-            );
+            String msg = "⚠ Capacity Alert: Your hospital is currently operating at " + 
+                         Math.round(currentOccupancy) + "% capacity. Consider transferring patients.";
+            
+            // Deduplicated Capacity Warning
+            java.util.Optional<hospital.Hospisync_backend.model.Notification> existing = 
+                notificationRepository.findByHospital_IdAndNotificationTypeAndIsRead(
+                    hospital.getId(),
+                    "CAPACITY_WARNING",
+                    false
+                );
+
+            if (existing.isPresent()) {
+                hospital.Hospisync_backend.model.Notification n = existing.get();
+                n.setTriggerCount(n.getTriggerCount() + 1);
+                n.setLastTriggered(java.time.LocalDateTime.now());
+                n.setMessage(msg);
+                notificationRepository.save(n);
+            } else {
+                hospital.Hospisync_backend.model.Notification n = new hospital.Hospisync_backend.model.Notification();
+                n.setHospital(hospital);
+                n.setNotificationType("CAPACITY_WARNING");
+                n.setType("WARNING");
+                n.setMessage(msg);
+                n.setIsRead(false);
+                n.setTriggerCount(1);
+                n.setLastTriggered(java.time.LocalDateTime.now());
+                notificationRepository.save(n);
+            }
         }
 
         return savedCategory;

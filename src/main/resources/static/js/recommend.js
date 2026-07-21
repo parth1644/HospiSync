@@ -68,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const originalOnClick = btn.onclick;
         btn.onclick = function(e) {
             localStorage.removeItem('triedHospitals');
-            console.log('Manual search: cleared triedHospitals — all hospitals available');
+            // console.log('Manual search: cleared triedHospitals — all hospitals available');
             const activeId = localStorage.getItem('activeTransferId');
             if (activeId) {
                 // For now clear on manual search
@@ -88,7 +88,15 @@ async function fetchAIRecommendations() {
     const list = document.getElementById('recommendList');
     const panel = document.getElementById('smartRecommendationPanel');
     const dist = document.getElementById('filter-distance')?.value;
-    
+
+    // Loading state for the Find Hospitals button
+    const searchBtn = document.getElementById('computeBestFitBtn');
+    const originalBtnHtml = searchBtn ? searchBtn.innerHTML : null;
+    if (searchBtn) {
+        searchBtn.disabled = true;
+        searchBtn.innerHTML = '🔄 Finding hospitals...';
+    }
+
     if (list) {
         list.innerHTML = '<tr><td colspan="6" style="color:var(--text-muted);text-align:center;padding:40px;">🔄 Searching nearby hospitals with requirements...</td></tr>';
     }
@@ -136,11 +144,18 @@ async function fetchAIRecommendations() {
             list.innerHTML = `
                 <tr>
                     <td colspan="6" style="color:var(--text-muted);text-align:center;padding:60px;">
-                        <div style="font-size: 40px; margin-bottom: 12px;">🧭</div>
-                        <div>Adjust filters and click <strong>Compute Best Fit</strong> for network optimization.</div>
+                        <div style="font-size: 40px; margin-bottom: 12px; color: var(--primary); opacity: 0.2; display: flex; justify-content: center;">
+                            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 1 0 10 10M12 2a10 10 0 1 1-10 10M12 7l4 2-4 2V7z"/></svg>
+                        </div>
+                        <div class="font-bold text-slate-400 uppercase tracking-widest text-xs">Adjust filters and click <strong>Compute Best Fit</strong> for network optimization.</div>
                     </td>
                 </tr>
             `;
+            // Restore button state on early return
+            if (searchBtn && originalBtnHtml) {
+                searchBtn.disabled = false;
+                searchBtn.innerHTML = originalBtnHtml;
+            }
             return;
         }
 
@@ -148,6 +163,11 @@ async function fetchAIRecommendations() {
 
         if (!data || data.length === 0) {
             list.innerHTML = '<tr><td colspan="6" style="color:var(--text-muted);text-align:center;padding:40px;">No nearby hospitals matching your criteria.</td></tr>';
+            // Restore button state
+            if (searchBtn && originalBtnHtml) {
+                searchBtn.disabled = false;
+                searchBtn.innerHTML = originalBtnHtml;
+            }
             return;
         }
 
@@ -179,7 +199,9 @@ async function fetchAIRecommendations() {
                 <tr class="hover:bg-slate-50/50 transition-colors ${isBestMatch ? 'bg-primary/[0.02]' : ''}">
                     <td class="px-4 py-5">
                         <div class="flex items-center gap-3">
-                            <span class="text-xl">🏥</span>
+                            <span class="text-xl text-primary">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><path d="M9 11h2m2 0h2M11 9v2m0 2v2"/></svg>
+                            </span>
                             <div>
                                 <div class="font-black text-slate-900 text-sm tracking-tight">${h.hospitalName || 'Unnamed Hospital'} ${badge}</div>
                                 <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">${h.address || 'Network Facility'}</div>
@@ -226,6 +248,12 @@ async function fetchAIRecommendations() {
             list.innerHTML = `<tr><td colspan="6" style="color:var(--danger);text-align:center;padding:40px;">Failed to load recommended hospitals. Error: ${err.message}</td></tr>`;
         }
         console.error("Recommendation Error: ", err);
+    } finally {
+        // Always restore button state
+        if (searchBtn && originalBtnHtml) {
+            searchBtn.disabled = false;
+            searchBtn.innerHTML = originalBtnHtml;
+        }
     }
 }
 
@@ -251,7 +279,9 @@ function renderSplitPlanCard(plan) {
                         return `
                             <div class="flex justify-between items-center p-4 bg-slate-50/50 rounded-xl border border-white">
                                 <div class="flex items-center gap-3">
-                                    <span class="text-lg">🏥</span>
+                                    <span class="text-lg text-amber-600">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><path d="M9 11h2m2 0h2M11 9v2m0 2v2"/></svg>
+                                    </span>
                                     <div>
                                         <div class="text-sm font-black text-slate-900">${p.hospitalName || 'Unnamed Hospital'}</div>
                                         <div class="flex gap-2 mt-1">${allocations}</div>
@@ -293,7 +323,7 @@ function renderSmartPanel(bestMatch) {
                         <h4 class="text-2xl font-black text-slate-900 tracking-tight">${bestMatch.hospitalName || 'Unnamed Hospital'}</h4>
                     </div>
                     <p class="text-sm text-slate-500 font-medium mb-8 flex items-center gap-2">
-                        <span class="material-symbols-outlined text-sm">location_on</span>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
                         ${bestMatch.address || 'Network Access Point'}
                     </p>
                     
@@ -387,12 +417,22 @@ async function confirmSplitTransfers() {
 
         if (successCount > 0) {
             showToast(`Successfully initiated ${successCount} transfers. All receiving hospitals have been notified.`, "success");
-            // Refresh transfer history if on that section
+            // Refresh transfer history
             if (typeof loadTransfers === 'function') loadTransfers();
             // Hide the split plan card after success
             const panel = document.getElementById('smartRecommendationPanel');
             if (panel) panel.style.display = 'none';
             lastSplitPlan = null;
+            
+            // Navigate to transfers section
+            setTimeout(() => {
+                if (typeof showSection === 'function') {
+                    showSection('transfer');
+                }
+                setTimeout(() => {
+                    if (typeof initTransferPage === 'function') initTransferPage();
+                }, 200);
+            }, 500);
         }
         
         if (failCount > 0) {
@@ -410,7 +450,7 @@ async function viewHospitalDetails(hospitalId, hospitalName) {
     const title = document.getElementById('detailHospitalTitle');
     const transferBtn = document.getElementById('detailTransferBtn');
 
-    title.textContent = '🏥 ' + hospitalName;
+    title.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-primary" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><path d="M9 11h2m2 0h2M11 9v2m0 2v2"/></svg> ` + hospitalName;
     content.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:24px;">🔄 Loading hospital details...</p>';
     modal.classList.add('active');
 
@@ -453,11 +493,11 @@ async function viewHospitalDetails(hospitalId, hospitalName) {
             <div class="flex justify-between items-center mb-8 pb-4 border-b border-slate-50">
                 <div class="flex items-center gap-4">
                     <span class="bg-slate-50 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-500 flex items-center gap-2">
-                        <span class="material-symbols-outlined text-sm">distance</span>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
                         ${data.distance} km
                     </span>
                     <span class="bg-slate-50 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-500 flex items-center gap-2">
-                        <span class="material-symbols-outlined text-sm">schedule</span>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
                         ${data.estimatedTravelTime}
                     </span>
                 </div>

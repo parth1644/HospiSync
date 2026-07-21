@@ -3,8 +3,8 @@
 <head>
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-    <title>HospiSync – Dashboard</title>
-    <meta name="description" content="HospiSync Hospital Dashboard – Monitor bed occupancy, forecast load, and manage patient transfers.">
+    <title>HospiSync — Dashboard</title>
+    <meta name="description" content="HospiSync — Intelligent Hospital Load Forecasting and Patient Distribution System. Monitor beds, predict load, transfer patients.">
     
     <!-- Design System: Clinical Precision -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
@@ -160,6 +160,30 @@
         .toast.active { display: flex; align-items: center; gap: 8px; }
         .toast.success { background: #008744; color: white; }
         .toast.error { background: #ba1a1a; color: white; }
+
+        .cta-button {
+            min-height: 48px;
+            min-width: 48px;
+            padding: 12px 24px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .icon-button {
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        /* Protocol Row Styles */
+        tr.protocol-rejected { border-left: 3px solid #EF4444 !important; }
+        tr.protocol-rejected:hover { background: #FFF5F5 !important; }
+        tr.protocol-approved { border-left: 3px solid #22C55E !important; }
+        tr.protocol-approved:hover { background: #F0FDF4 !important; }
+        tr.protocol-pending { border-left: 3px solid #F59E0B !important; }
+        tr.protocol-pending:hover { background: #FFFBEB !important; }
     </style>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -201,39 +225,36 @@
             </div>
             
             <nav class="flex-1 space-y-1">
-                <button class="nav-item active w-[calc(100%-16px)] mx-2 px-4 py-2.5 rounded-md flex items-center gap-3 transition-colors text-white/70 hover:text-white hover:bg-[var(--bg-card)]/10" data-section="overview" onclick="showSection('overview')">
-                    <span class="material-symbols-outlined">dashboard</span>
+                <button class="nav-item active w-[calc(100%-16px)] mx-2 px-4 py-3 rounded-md flex items-center gap-3 transition-colors text-white/70 hover:text-white hover:bg-[var(--bg-card)]/10" data-section="overview" onclick="showSection('overview')">
+                    <span class="material-symbols-outlined" aria-hidden="true">dashboard</span>
                     <span class="font-semibold">Dashboard</span>
                 </button>
-                <button class="nav-item w-[calc(100%-16px)] mx-2 px-4 py-2.5 rounded-md flex items-center gap-3 transition-colors text-white/70 hover:text-white hover:bg-[var(--bg-card)]/10" data-section="beds" onclick="showSection('beds')">
-                    <span class="material-symbols-outlined">bed</span>
+                <button class="nav-item w-[calc(100%-16px)] mx-2 px-4 py-3 rounded-md flex items-center gap-3 transition-colors text-white/70 hover:text-white hover:bg-[var(--bg-card)]/10" data-section="beds" onclick="showSection('beds')">
+                    <span class="material-symbols-outlined" aria-hidden="true">bed</span>
                     <span class="font-semibold">Bed Management</span>
                 </button>
-                <button class="nav-item w-[calc(100%-16px)] mx-2 px-4 py-2.5 rounded-md flex items-center gap-3 transition-colors text-white/70 hover:text-white hover:bg-[var(--bg-card)]/10" onclick="location.href='/doctors.html'">
-                    <span class="material-symbols-outlined">stethoscope</span>
+                <button class="nav-item w-[calc(100%-16px)] mx-2 px-4 py-3 rounded-md flex items-center gap-3 transition-colors text-white/70 hover:text-white hover:bg-[var(--bg-card)]/10" onclick="location.href='/doctors.html'">
+                    <span class="material-symbols-outlined" aria-hidden="true">stethoscope</span>
                     <span class="font-semibold">Doctors</span>
                 </button>
-                <button class="nav-item w-[calc(100%-16px)] mx-2 px-4 py-2.5 rounded-md flex items-center gap-3 transition-colors text-white/70 hover:text-white hover:bg-[var(--bg-card)]/10" data-section="forecast" onclick="showSection('forecast')">
-                    <span class="material-symbols-outlined">analytics</span>
+                <button class="nav-item w-[calc(100%-16px)] mx-2 px-4 py-3 rounded-md flex items-center gap-3 transition-colors text-white/70 hover:text-white hover:bg-[var(--bg-card)]/10" data-section="forecast" onclick="showSection('forecast')">
+                    <span class="material-symbols-outlined" aria-hidden="true">analytics</span>
                     <span class="font-semibold">Load Forecast</span>
                 </button>
                 
                 <div class="px-6 mt-8 mb-2 text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-widest">Operations</div>
                 
-                <button class="nav-item w-[calc(100%-16px)] mx-2 px-4 py-2.5 rounded-md flex items-center gap-3 transition-colors text-white/70 hover:text-white hover:bg-[var(--bg-card)]/10" data-section="recommend" onclick="showSection('recommend')">
-                    <span class="material-symbols-outlined">fact_check</span>
+                <button class="nav-item w-[calc(100%-16px)] mx-2 px-4 py-3 rounded-md flex items-center gap-3 transition-colors text-white/70 hover:text-white hover:bg-[var(--bg-card)]/10" data-section="recommend" onclick="showSection('recommend')">
+                    <span class="material-symbols-outlined" aria-hidden="true">fact_check</span>
                     <span class="font-semibold">Recommendations</span>
                 </button>
-                <button class="nav-item w-[calc(100%-16px)] mx-2 px-4 py-2.5 rounded-md flex items-center gap-3 transition-colors text-white/70 hover:text-white hover:bg-[var(--bg-card)]/10" data-section="transfer" onclick="showSection('transfer')">
-                    <span class="material-symbols-outlined">move_group</span>
+                <button class="nav-item w-[calc(100%-16px)] mx-2 px-4 py-3 rounded-md flex items-center gap-3 transition-colors text-white/70 hover:text-white hover:bg-[var(--bg-card)]/10 relative" data-section="transfer" onclick="showSection('transfer')">
+                    <span class="material-symbols-outlined" aria-hidden="true">move_group</span>
                     <span class="font-semibold">Hospital Transfers</span>
+                    <span class="absolute right-3 top-1/2 -translate-y-1/2 bg-error text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold min-w-[18px] text-center" id="navTransferBadge" style="display:none;">0</span>
                 </button>
-                <a href="/patient.html" target="_blank" class="nav-item w-[calc(100%-16px)] mx-2 px-4 py-2.5 rounded-md flex items-center gap-3 transition-colors text-white/70 hover:text-white hover:bg-[var(--bg-card)]/10">
-                    <span class="material-symbols-outlined">person_search</span>
-                    <span class="font-semibold">Patient Finder ↗</span>
-                </a>
-                <button class="nav-item w-[calc(100%-16px)] mx-2 px-4 py-2.5 rounded-md flex items-center gap-3 transition-colors text-white/70 hover:text-white hover:bg-[var(--bg-card)]/10 relative" data-section="notifications" onclick="showSection('notifications')">
-                    <span class="material-symbols-outlined">notifications</span>
+                <button class="nav-item w-[calc(100%-16px)] mx-2 px-4 py-3 rounded-md flex items-center gap-3 transition-colors text-white/70 hover:text-white hover:bg-[var(--bg-card)]/10 relative" data-section="notifications" onclick="showSection('notifications')">
+                    <span class="material-symbols-outlined" aria-hidden="true">notifications</span>
                     <span class="font-semibold">Notifications</span>
                     <span class="absolute right-3 top-1/2 -translate-y-1/2 bg-error text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold min-w-[18px] text-center" id="navNotifBadge" style="display:none;">0</span>
                 </button>
@@ -252,8 +273,8 @@
     <header class="top-header fixed top-0 right-0 left-0 lg:left-64 h-16 flex items-center z-[1000] bg-[var(--bg-card)] backdrop-blur-md shadow-sm border-b border-[var(--border-color)] transition-all duration-300" id="topHeader">
         <div class="flex justify-between items-center px-8 w-full">
             <div class="flex items-center gap-4 flex-1">
-                <button class="lg:hidden p-2 text-[var(--text-secondary)]" id="hamburgerBtn" onclick="toggleSidebar()">
-                    <span class="material-symbols-outlined">menu</span>
+                <button class="lg:hidden p-2 text-[var(--text-secondary)] icon-button" id="hamburgerBtn" onclick="toggleSidebar()" aria-label="Toggle sidebar navigation">
+                    <span class="material-symbols-outlined" aria-hidden="true">menu</span>
                 </button>
                 <div class="flex flex-col">
                     <h2 class="text-lg font-bold text-[var(--text-primary)] tracking-tight" id="pageTitle">Dashboard</h2>
@@ -271,7 +292,7 @@
                 </div>
                 
                 <div class="relative">
-                    <button class="material-symbols-outlined text-[var(--text-secondary)] hover:bg-[var(--hover-bg)] rounded-full p-2 transition-all cursor-pointer relative" id="notifBellBtn" onclick="toggleNotifications()">
+                    <button class="material-symbols-outlined text-[var(--text-secondary)] hover:bg-[var(--hover-bg)] rounded-full p-2 transition-all cursor-pointer relative icon-button" id="notifBellBtn" onclick="toggleNotifications()" aria-label="View notifications">
                         notifications
                         <span class="absolute top-1 right-1 w-4 h-4 bg-error text-white text-[9px] flex items-center justify-center rounded-full font-bold border-2 border-white" id="headerNotifBadge" style="display:none;">0</span>
                     </button>
@@ -279,7 +300,10 @@
                     <div class="absolute top-12 right-0 w-80 glass-card rounded-xl shadow-ambient border border-white/40 overflow-hidden hidden" id="notifPopover">
                         <div class="p-4 border-b border-[var(--border-color)] flex justify-between items-center bg-[var(--bg-card)]/40">
                             <h4 class="text-xs font-bold uppercase tracking-widest text-[var(--text-primary)]">Notifications</h4>
-                            <button class="text-[10px] text-primary font-bold hover:underline" onclick="showSection('notifications')">View All</button>
+                            <div class="flex gap-4">
+                                <button class="text-[10px] text-primary font-bold hover:underline" onclick="showSection('notifications'); toggleNotifications()">View All</button>
+                                <button class="text-[10px] text-error font-bold hover:underline" onclick="clearAllNotifications()">Clear All</button>
+                            </div>
                         </div>
                         <div class="max-h-80 overflow-y-auto" id="notifPopoverList">
                             <div class="p-8 text-center text-[var(--text-secondary)] text-xs italic">No new notifications</div>
@@ -460,7 +484,7 @@
         </div>
 
         <!-- SECTION: BEDS -->
-        <div class="section section-container hidden" id="section-beds">
+        <div class="section section-container" id="section-beds" style="display: none;">
             <div class="flex justify-between items-center mb-8">
                 <h1 class="text-3xl font-black text-[var(--text-primary)] tracking-tight">Facility Configuration</h1>
                 <button class="bg-primary text-white px-6 py-3 rounded-xl text-sm font-bold flex items-center gap-2 shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all active:scale-95" onclick="openAddCategoryModal()">
@@ -527,7 +551,7 @@
         </div>
 
         <!-- SECTION: FORECAST -->
-        <div class="section section-container hidden" id="section-forecast">
+        <div class="section section-container" id="section-forecast" style="display: none;">
             <div class="flex justify-between items-center mb-8">
                 <h1 class="text-3xl font-black text-[var(--text-primary)] tracking-tight">Predictive Analytics</h1>
                 <button class="px-5 py-2.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl text-sm font-bold text-[var(--text-primary)] hover:bg-[var(--hover-bg)] shadow-sm transition-all flex items-center gap-2" onclick="loadForecast()">
@@ -586,7 +610,7 @@
         </div>
 
         <!-- SECTION: RECOMMEND -->
-        <div class="section section-container hidden" id="section-recommend">
+        <div class="section section-container" id="section-recommend" style="display: none;">
             <div class="mb-10">
                 <h1 class="text-3xl font-black text-[var(--text-primary)] tracking-tight mb-2">Network Recommendation Engine</h1>
                 <p class="text-sm text-[var(--text-secondary)] font-medium">Heuristic-based distribution analysis for clinical load balancing.</p>
@@ -674,7 +698,7 @@
         </div>
 
         <!-- SECTION: PATIENT TRANSFER -->
-        <div class="section section-container hidden" id="section-transfer">
+        <div class="section section-container" id="section-transfer" style="display: none;">
             
             <div id="senderTimerPanel" style="display:none; margin-bottom:24px;"></div>
 
@@ -710,7 +734,7 @@
                                     <th class="px-8 py-4 text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-widest">Census Load</th>
                                     <th class="px-8 py-4 text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-widest">Timestamp</th>
                                     <th class="px-8 py-4 text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-widest text-center">Protocol</th>
-                                    <th class="px-8 py-4 text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-widest text-right">Resolution</th>
+                                    <th class="px-8 py-4"></th> 
                                 </tr>
                             </thead>
                             <tbody id="incomingTransferTable" class="divide-y divide-slate-50">
@@ -732,7 +756,7 @@
                         <table class="w-full text-left">
                             <thead class="bg-[var(--hover-bg)]/50 border-b border-[var(--border-color)]">
                                 <tr>
-                                    <th class="px-8 py-4 text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-widest">UID</th>
+                                    <th class="px-8 py-4 text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-widest">TRANSFER ID</th>
                                     <th class="px-8 py-4 text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-widest">Destination</th>
                                     <th class="px-8 py-4 text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-widest">Volume</th>
                                     <th class="px-8 py-4 text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-widest text-center">Stage</th>
@@ -749,69 +773,22 @@
         </div>
 
         <!-- SECTION: NOTIFICATIONS -->
-        <div class="section section-container hidden" id="section-notifications">
-            <h1 class="text-3xl font-black text-[var(--text-primary)] tracking-tight mb-10">Notification Center</h1>
+        <div class="section section-container" id="section-notifications" style="display: none;">
+            <div class="flex justify-between items-center mb-10">
+                <h1 class="text-3xl font-black text-[var(--text-primary)] tracking-tight flex items-center">
+                    Notification Center 
+                    <span id="notif-header-count" class="hidden ml-4 bg-error text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg shadow-error/20 animate-in">0</span>
+                </h1>
+                <button class="bg-error/10 text-error px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-error/20 transition-all flex items-center gap-2" onclick="clearAllNotifications()">
+                    <span class="material-symbols-outlined text-sm">delete_sweep</span>
+                    Clear All
+                </button>
+            </div>
             <div id="notificationsList" class="space-y-4">
                 <!-- Populated -->
             </div>
         </div>
 
-        <!-- SECTION: PATIENT ADMISSIONS -->
-        <!--
-        <div class="section section-container hidden" id="section-admissions">
-            <div class="flex justify-between items-center mb-8">
-                <div>
-                    <h1 class="text-3xl font-black text-[var(--text-primary)] tracking-tight mb-1">Patient Admissions</h1>
-                    <p class="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-widest mt-1">Incoming patient admission requests from the public portal</p>
-                </div>
-                <button class="bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-primary)] px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-[var(--hover-bg)] transition-all shadow-sm" onclick="fetchPatientAdmissions()">
-                    <span class="material-symbols-outlined text-lg">refresh</span> Refresh
-                </button>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
-                <div class="bg-[var(--bg-card)] p-6 rounded-xl border border-[var(--border-color)] shadow-sm relative overflow-hidden group">
-                    <p class="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-widest mb-3">Total Today</p>
-                    <h2 class="text-3xl font-black text-[var(--text-primary)] tracking-tighter" id="admStatsTotal">0</h2>
-                </div>
-                <div class="bg-[var(--bg-card)] p-6 rounded-xl border border-[var(--border-color)] shadow-sm relative overflow-hidden group">
-                    <p class="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-widest mb-3">Pending</p>
-                    <h2 class="text-3xl font-black text-[var(--text-primary)] tracking-tighter text-amber-600" id="admStatsPending">0</h2>
-                </div>
-                <div class="bg-[var(--bg-card)] p-6 rounded-xl border border-[var(--border-color)] shadow-sm relative overflow-hidden group">
-                    <p class="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-widest mb-3">Confirmed Today</p>
-                    <h2 class="text-3xl font-black text-[var(--text-primary)] tracking-tighter text-green-600" id="admStatsConfirmed">0</h2>
-                </div>
-                <div class="bg-[var(--bg-card)] p-6 rounded-xl border border-[var(--border-color)] shadow-sm relative overflow-hidden group">
-                    <p class="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-widest mb-3">Declined Today</p>
-                    <h2 class="text-3xl font-black text-[var(--text-primary)] tracking-tighter text-red-600" id="admStatsDeclined">0</h2>
-                </div>
-            </div>
-
-            <div class="mt-8 mb-4">
-                <h3 class="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-[0.2em] flex items-center gap-2">
-                    <span class="material-symbols-outlined text-sm">pending_actions</span>
-                    Active Requests
-                </h3>
-            </div>
-
-            <!-- Requests List -->
-            <div id="admissionsRequestsContainer" class="space-y-4">
-                <!-- Dynamically populated -->
-            </div>
-
-            <!-- History Header -->
-            <div class="mt-12 mb-4" id="admHistoryHeader" style="display:none;">
-                <h3 class="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-[0.2em] flex items-center gap-2">
-                    <span class="material-symbols-outlined text-sm">history</span>
-                    Recent History
-                </h3>
-            </div>
-
-            <!-- History List -->
-            <div id="admissionsHistoryContainer" class="space-y-4"></div>
-        </div>
-        -->
 
     </main>
 
@@ -957,7 +934,6 @@
     <script src="/js/forecast.js"></script>
     <script src="/js/recommend.js"></script>
     <script src="/js/transfer.js"></script>
-    <script src="/js/patient-admissions.js"></script>
 
     <script>
         // Runs every 30 minutes to keep session alive or detect expiry

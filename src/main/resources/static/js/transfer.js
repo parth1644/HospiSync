@@ -92,7 +92,10 @@ function renderDynamicBedInputs(categories) {
 
         return `
             <div class="space-y-2">
-                <label class="text-[10px] font-black text-slate-400 border-l-2 border-primary/20 pl-2 uppercase tracking-widest block">${cat.icon || '🏥'} ${destName} <span class="lowercase text-[9px] text-slate-300">(Avail: ${cat.available})</span></label>
+                <label class="text-[10px] font-black text-slate-400 border-l-2 border-primary/20 pl-2 uppercase tracking-widest block">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="display:inline-block; margin-right:4px;" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><path d="M9 11h2m2 0h2M11 9v2m0 2v2"/></svg>
+                    ${destName} <span class="lowercase text-[9px] text-slate-300">(Avail: ${cat.available})</span>
+                </label>
                 <div class="relative">
                     <input type="number" 
                            id="input_cat_${index}" 
@@ -220,8 +223,8 @@ async function submitTransfer() {
             closeTransferModal();
 
             // Navigate to transfers section and start timer
-            console.log('Transfer created ID:', transferId);
-            console.log('Redirecting to transfers section...');
+            // console.log('Transfer created ID:', transferId);
+            // console.log('Redirecting to transfers section...');
             setTimeout(() => {
                 if (typeof showSection === 'function') {
                     showSection('transfer');
@@ -259,6 +262,7 @@ async function loadTransfers() {
         ]);
 
         renderTransferTables(incoming || [], outgoing || []);
+        updateTransferBadgeFromList(incoming || []);
         showToast("Transfers successfully synchronized", "success");
     } catch (err) {
         console.error("Failed to load transfers:", err);
@@ -286,26 +290,26 @@ function renderTransferTables(incoming, outgoing) {
                     `;
                 } else if (t.status === 'APPROVED') {
                     actions = `<button class="btn btn-sm" style="background:var(--primary);color:white;padding:4px 8px;" onclick="updateTransferStatus(${t.id}, 'COMPLETED')">Mark Completed</button>`;
-                } else {
-                    actions = `<span style="color:var(--text-muted);font-size:12px;">No actions</span>`;
                 }
 
                 return `
-                    <tr>
-                        <td>
+                    <tr class="protocol-${t.status.toLowerCase()}">
+                        <td class="px-8 py-4">
                             <div style="font-weight:600;color:var(--text-primary);">${t.fromHospital?.hospitalName || 'Unknown'}</div>
                         </td>
-                        <td>
+                        <td class="px-8 py-4">
                             <div style="font-weight:700;color:var(--primary);">${t.patientCount} Total</div>
                             <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">
                                 ${renderBedTypeBreakdown(t)}
                             </div>
                         </td>
-                        <td>
+                        <td class="px-8 py-4">
                             <div style="font-size:12px;color:var(--text-muted);">${new Date(t.createdAt).toLocaleString()}</div>
                         </td>
-                        <td><span style="color:${statusColor};font-weight:600;font-size:12px;padding:4px 10px;border-radius:12px;background:${statusColor}15;border:1px solid ${statusColor}40;">${t.status}</span></td>
-                        <td>${actions}</td>
+                        <td class="px-8 py-4 text-center">
+                            <span style="color:${statusColor};font-weight:800;font-size:10px;padding:4px 12px;border-radius:12px;background:${statusColor}15;border:1px solid ${statusColor}40;text-transform:uppercase;letter-spacing:0.5px;">${t.status}</span>
+                        </td>
+                        <td class="px-8 py-4 text-right">${actions}</td>
                     </tr>
                 `;
             }).join('');
@@ -315,19 +319,31 @@ function renderTransferTables(incoming, outgoing) {
         outgoingTable.innerHTML = outgoing.length === 0
             ? '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:32px;">No outgoing transfers</td></tr>'
             : outgoing.map(t => {
-                const statusColor = getStatusColor(t.status);
+                const d = new Date(t.createdAt);
+                const formattedDate = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) + ' · ' + d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+                
+                let stageBadge = '';
+                if (t.status === 'APPROVED' || t.status === 'COMPLETED') {
+                    stageBadge = `<span style="background: #F0FDF4; color: #15803D; border: 1px solid #86EFAC; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;">✓ APPROVED</span>`;
+                } else if (t.status === 'REJECTED') {
+                    stageBadge = `<span style="background: #FFF5F5; color: #B91C1C; border: 1px solid #FECACA; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;">✕ REJECTED</span>`;
+                } else {
+                    const sc = getStatusColor(t.status);
+                    stageBadge = `<span style="color:${sc};font-weight:600;font-size:11px;padding:3px 10px;border-radius:20px;background:${sc}15;border:1px solid ${sc}40;">${t.status}</span>`;
+                }
+
                 return `
                     <tr>
-                        <td style="font-size:12px;color:var(--text-muted);font-weight:600;">#${t.id}</td>
-                        <td style="font-weight:600;color:var(--text-primary);">${t.toHospital?.hospitalName || 'Unknown'}</td>
-                        <td>
+                        <td class="px-8 py-4 font-mono text-[11px] font-black text-slate-400">TXN-${t.id}</td>
+                        <td class="px-8 py-4 font-bold text-slate-700">${t.toHospital?.hospitalName || 'Unknown'}</td>
+                        <td class="px-8 py-4">
                             <div style="font-weight:700;color:var(--primary);">${t.patientCount} Total</div>
                             <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">
                                 ${renderBedTypeBreakdown(t)}
                             </div>
                         </td>
-                        <td><span style="color:${statusColor};font-weight:600;font-size:12px;padding:4px 10px;border-radius:12px;background:${statusColor}15;border:1px solid ${statusColor}40;">${t.status}</span></td>
-                        <td>${new Date(t.createdAt).toLocaleDateString()}</td>
+                        <td class="px-8 py-4 text-center">${stageBadge}</td>
+                        <td class="px-8 py-4 text-[11px] font-bold text-slate-500">${formattedDate}</td>
                     </tr>
                 `;
             }).join('');
@@ -350,7 +366,7 @@ function getStatusColor(status) {
 }
 
 async function updateTransferStatus(transferId, newStatus) {
-    console.log(`Attempting status update: Transfer ${transferId} -> ${newStatus}`);
+    // console.log(`Attempting status update: Transfer ${transferId} -> ${newStatus}`);
     
     let isConfirmed = false;
     try {
@@ -377,7 +393,8 @@ async function updateTransferStatus(transferId, newStatus) {
         
         if (result && !result.error) {
             showToast(`Transfer successfully marked as ${newStatus}`, 'success');
-            loadTransfers();
+            await loadTransfers();
+            await pollTransferBadge();
             if (typeof loadDashboard === 'function') loadDashboard(); 
         } else {
             console.error("Status Update Failed Result:", result);
@@ -399,17 +416,22 @@ function showNotificationAlert(message, type = 'INFO') {
     const alert = document.createElement('div');
     alert.className = 'notif-alert-card animate-in ' + type.toLowerCase();
     
-    const icon = type === 'EMERGENCY' ? '🚨' : type === 'SUCCESS' ? '✅' : 'ℹ️';
+    const iconSvg = type === 'EMERGENCY' 
+        ? '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-error"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
+        : type === 'SUCCESS' 
+        ? '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-success"><polyline points="20 6 9 17 4 12"/></svg>'
+        : '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-primary"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
+    
     const title = type === 'EMERGENCY' ? 'EMERGENCY ALERT' : 'Notification';
     
     alert.innerHTML = `
         <div style="display:flex; gap:12px; align-items:flex-start;">
-            <div style="font-size:24px;">${icon}</div>
+            <div style="flex-shrink:0;">${iconSvg}</div>
             <div style="flex:1;">
                 <div style="font-weight:700; font-size:12px; margin-bottom:4px; opacity:0.8; letter-spacing:0.5px;">${title}</div>
                 <div style="font-size:13px; line-height:1.4; color:var(--text-primary);">${message}</div>
             </div>
-            <button onclick="this.parentElement.parentElement.remove()" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px;">&times;</button>
+            <button onclick="this.parentElement.parentElement.remove()" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px;" aria-label="Dismiss notification">&times;</button>
         </div>
     `;
 
@@ -456,6 +478,36 @@ async function poolNotifications() {
 // Start polling every 10 seconds
 setInterval(poolNotifications, 10000);
 
+// ===== Transfer Badge Polling =====
+async function pollTransferBadge() {
+    try {
+        const hospitalId = getHospitalId();
+        if (!hospitalId) return;
+
+        const active = await apiGet(`/transfer/incoming/pending/${hospitalId}`);
+        updateTransferBadgeFromList(active || []);
+    } catch (err) {
+        // Silent fail for polling
+    }
+}
+
+function updateTransferBadgeFromList(incoming) {
+    const badge = document.getElementById('navTransferBadge');
+    if (!badge) return;
+
+    const pendingCount = incoming.filter(t => t.status === 'PENDING').length;
+    if (pendingCount > 0) {
+        badge.textContent = pendingCount;
+        badge.style.display = 'block';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+// Start polling every 30 seconds
+setInterval(pollTransferBadge, 30000);
+pollTransferBadge(); // Initial call
+
 // Close modal on backdrop click
 document.getElementById('transferModal')?.addEventListener('click', function (e) {
     if (e.target === this) closeTransferModal();
@@ -472,7 +524,7 @@ function showActiveTransferWarning(existingId, newHospitalName) {
       recSection.insertBefore(warningDiv, recSection.firstChild);
     } else {
       // Fallback if section isn't found, append clearly to body
-      document.body.prepend(warningDiv); 
+      const main = document.getElementById('mainContent'); if (main) main.prepend(warningDiv); else document.body.prepend(warningDiv); 
     }
   }
   
@@ -551,7 +603,7 @@ async function cancelAndSendNew(oldTransferId, newHospitalName) {
 function initTransferPage() {
   const activeId = localStorage.getItem('activeTransferId');
     
-  console.log('Active transfer ID:', activeId);
+  // console.log('Active transfer ID:', activeId);
   
   if (activeId && activeId !== 'null' && activeId !== 'undefined') {
     
@@ -618,7 +670,7 @@ async function pollTransferStatus(transferId) {
     }
     
     const data = await response.json();
-    console.log('Transfer status:', data);
+    // console.log('Transfer status:', data);
     updateTimerPanel(data);
   } catch (error) {
     console.error('Poll error:', error);
@@ -1213,8 +1265,9 @@ function renderStageCard(t) {
         <div style="margin-top:16px;">
             <label style="font-size:12px; font-weight:700; color:#374151; display:block; margin-bottom:8px;">Select Doctor:</label>
             <select id="doctorSelect_${t.id}"
+                onfocus="loadDoctorsForTransfer(${t.id}, this.value)"
                 style="width:100%; padding:10px 14px; border:1px solid #E2E8F0; border-radius:10px; margin-bottom:12px; font-size:13px;">
-                <option value="">Loading doctors...</option>
+                <option value="">Select a doctor...</option>
             </select>
             <div style="display:flex; gap:12px;">
                 <button onclick="confirmTransferRequest(${t.id})"
@@ -1303,7 +1356,7 @@ async function rejectTransferRequest(transferId) {
     }
 }
 
-async function loadDoctorsForTransfer(transferId) {
+async function loadDoctorsForTransfer(transferId, lastSelectedId = null) {
     const token = localStorage.getItem('token');
     if (!token) return;
     try {
@@ -1314,8 +1367,21 @@ async function loadDoctorsForTransfer(transferId) {
         const doctors = await response.json();
         const select = document.getElementById(`doctorSelect_${transferId}`);
         if (!select) return;
+        
+        // Only update if doctors list changed or if it was empty to avoid flicker during focus
+        const currentOptions = Array.from(select.options).map(o => o.value).filter(v => v);
+        const newIds = doctors.map(d => String(d.id));
+        
+        // If the list is the same and we have options, don't re-render unless forced by empty
+        if (currentOptions.length > 0 && currentOptions.length === newIds.length && currentOptions.every(id => newIds.includes(id))) {
+             if (lastSelectedId) select.value = lastSelectedId;
+             return;
+        }
+
         select.innerHTML = '<option value="">Select a doctor...</option>' + 
             doctors.map(d => `<option value="${d.id}">${d.name} (${d.speciality || 'General'})</option>`).join('');
+            
+        if (lastSelectedId) select.value = lastSelectedId;
     } catch (e) { console.error(e); }
 }
 

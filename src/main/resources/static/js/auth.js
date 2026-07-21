@@ -169,7 +169,7 @@ function initMap() {
     }
 
     // Proactively request location on load after a short delay
-    console.log("Initializing map and requesting location...");
+
     setTimeout(() => {
         if (typeof useMyLocation === 'function') {
             useMyLocation();
@@ -202,7 +202,7 @@ function updateMapLocation(lat, lng) {
 }
 
 async function reverseGeocode(lat, lng) {
-    console.log(`Reverse geocoding: ${lat}, ${lng}`);
+
     try {
         const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`, {
             headers: {
@@ -213,7 +213,7 @@ async function reverseGeocode(lat, lng) {
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         
         const data = await response.json();
-        console.log("Reverse geocode response:", data);
+
         
         if (data && data.display_name) {
             const address = data.display_name;
@@ -222,11 +222,11 @@ async function reverseGeocode(lat, lng) {
             
             if (addressInput) {
                 addressInput.value = address;
-                console.log("Updated address field");
+
             }
             if (searchInput) {
                 searchInput.value = address;
-                console.log("Updated search field");
+
             }
         } else {
             console.warn("No address found for these coordinates.");
@@ -268,7 +268,7 @@ function useMyLocation() {
             const lat = position.coords.latitude;
             const lng = position.coords.longitude;
 
-            console.log(`Success: ${lat}, ${lng}`);
+
             updateMapLocation(lat, lng);
 
             if (btn) btn.innerHTML = '<span>✅</span> Location Found';
@@ -348,13 +348,20 @@ async function loginUser() {
 
     if (!email || !password) {
 
-        errorEl.textContent = 'Please fill in all fields';
+        errorEl.textContent = 'Action failed. Please fill in all fields.';
         errorEl.classList.add('active');
         return;
 
     }
 
     errorEl.classList.remove('active');
+
+    // Loading state
+    const loginBtn = document.getElementById('loginBtn');
+    if (loginBtn) {
+        loginBtn.disabled = true;
+        loginBtn.innerHTML = '<span>Signing in...</span>';
+    }
 
     showLoading(true);
 
@@ -408,7 +415,7 @@ async function loginUser() {
 
     } catch (err) {
 
-        errorEl.textContent = 'Network error. Please try again.';
+        errorEl.textContent = 'Unable to connect. Please check your internet connection.';
         errorEl.classList.add('active');
 
         showToast('Connection error', 'error');
@@ -416,6 +423,12 @@ async function loginUser() {
     } finally {
 
         showLoading(false);
+
+        // Restore button state
+        if (loginBtn) {
+            loginBtn.disabled = false;
+            loginBtn.innerHTML = '<span>Sign In</span><span class="material-symbols-outlined text-lg group-hover:translate-x-1 transition-transform" data-icon="login">login</span>';
+        }
 
     }
 
@@ -476,6 +489,13 @@ async function handleRegister() {
 
     errorEl.classList.remove('active');
 
+    // Loading state
+    const registerBtn = document.getElementById('registerBtn');
+    if (registerBtn) {
+        registerBtn.disabled = true;
+        registerBtn.textContent = 'Registering...';
+    }
+
     showLoading(true);
 
     try {
@@ -513,7 +533,7 @@ async function handleRegister() {
 
     } catch (err) {
 
-        errorEl.textContent = 'Network error. Please try again.';
+        errorEl.textContent = 'Unable to connect. Please check your internet connection.';
         errorEl.classList.add('active');
 
         showToast('Connection error', 'error');
@@ -521,6 +541,12 @@ async function handleRegister() {
     } finally {
 
         showLoading(false);
+
+        // Restore button state
+        if (registerBtn) {
+            registerBtn.disabled = false;
+            registerBtn.textContent = 'Register Hospital';
+        }
 
     }
 

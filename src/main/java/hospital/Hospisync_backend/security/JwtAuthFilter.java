@@ -1,6 +1,5 @@
 package hospital.Hospisync_backend.security;
 
-import hospital.Hospisync_backend.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -15,19 +14,18 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
-    private final UserRepository userRepository;
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getServletPath();
 
-        // Skip authentication for auth endpoints and static resources
         return path.startsWith("/api/auth")
                 || path.startsWith("/css")
                 || path.startsWith("/js")
@@ -44,34 +42,32 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             FilterChain filterChain) throws ServletException, IOException {
 
         try {
-
             String authHeader = request.getHeader("Authorization");
 
             if (authHeader != null && authHeader.startsWith("Bearer ")) {
-
                 String token = authHeader.substring(7);
 
                 if (jwtUtil.validateToken(token)) {
-
                     String email = jwtUtil.getEmailFromToken(token);
-
-                    userRepository.findByEmail(email).ifPresent(user -> {
+                    
+                    if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                        List<String> roles = jwtUtil.getRolesFromToken(token);
+                        List<SimpleGrantedAuthority> authorities = roles != null 
+                                ? roles.stream().map(SimpleGrantedAuthority::new).collect(Collectors.toList())
+                                : List.of();
 
                         UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                                 email,
                                 null,
-                                List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole())));
-
-                        System.out.println("DEBUG: Setting Security Principal to: " + email);
+                                authorities);
 
                         authentication.setDetails(
                                 new WebAuthenticationDetailsSource().buildDetails(request));
 
                         SecurityContextHolder.getContext().setAuthentication(authentication);
-                    });
+                    }
                 }
             }
-
         } catch (Exception e) {
             System.out.println("JWT Authentication error: " + e.getMessage());
         }

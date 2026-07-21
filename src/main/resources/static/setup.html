@@ -3,7 +3,8 @@
 <head>
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-    <title>HospiSync - Setup Wizard</title>
+    <title>HospiSync — Setup Wizard</title>
+    <meta name="description" content="HospiSync — Intelligent Hospital Load Forecasting and Patient Distribution System. Monitor beds, predict load, transfer patients.">
     
     <!-- Design System: Clinical Precision -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
@@ -346,12 +347,15 @@
                                     <label class="block text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-1">Doctor Name *</label>
                                     <input type="text" id="docName" required class="w-full bg-white border border-outline-variant rounded-md py-2 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" placeholder="e.g. Dr. Priya Sharma">
                                 </div>
-                                <div>
-                                    <label class="block text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-1">Speciality *</label>
-                                    <select id="docSpeciality" required class="w-full bg-white border border-outline-variant rounded-md py-2 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all">
-                                        <!-- Populated via renderDoctorSpecialityOptions() -->
-                                    </select>
-                                </div>
+                                 <div>
+                                     <label class="block text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-1">Speciality *</label>
+                                     <select id="docSpeciality" required class="w-full bg-white border border-outline-variant rounded-md py-2 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all">
+                                         <!-- Populated via renderDoctorSpecialityOptions() -->
+                                     </select>
+                                     <div id="customSpecialityContainer" class="hidden mt-2">
+                                         <input type="text" id="docCustomSpeciality" class="w-full bg-white border border-primary/30 rounded-md py-2 px-3 text-sm focus:ring-2 focus:ring-primary/10 transition-all font-bold placeholder:font-normal" placeholder="Enter department name...">
+                                     </div>
+                                 </div>
                                 <div>
                                     <label class="block text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-1">Qualification</label>
                                     <input type="text" id="docQualification" class="w-full bg-white border border-outline-variant rounded-md py-2 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" placeholder="e.g. MBBS MD">
@@ -508,7 +512,7 @@
         </div>
     </main>
 
-    <script src="js/api.js"></script>
-    <script src="js/setup.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/setup.js"></script>
 </body>
 </html>

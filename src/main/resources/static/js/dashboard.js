@@ -859,38 +859,101 @@ async function renderNotifications() {
     const list = document.getElementById('notifPopoverList');
     const fullList = document.getElementById('notificationsList');
     const hospitalId = getHospitalId();
+    if (!hospitalId) return;
 
     try {
         const data = await apiGet(`/notifications/${hospitalId}`);
         if (!data || !data.notifications) return;
 
-        const html = data.notifications.length === 0 
-            ? '<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px;">No notifications</div>'
-            : data.notifications.map(n => `
-                <div class="notification-item ${n.isRead ? '' : 'unread'}" onclick="markAsRead(${n.id})">
-                    <div class="notification-icon ${n.type.toLowerCase()}">
-                        ${n.type === 'WARNING' ? '⚠️' : '🔔'}
-                    </div>
-                    <div class="notification-content">
-                        <div class="notification-msg">${n.message}</div>
-                        <div class="notification-time">${new Date(n.createdAt).toLocaleString()}</div>
+        // Update counts and badges
+        const countBadge = document.getElementById('notif-header-count');
+        if (countBadge) {
+            countBadge.textContent = data.unreadCount;
+            countBadge.style.display = data.unreadCount > 0 ? 'inline-block' : 'none';
+        }
+
+        // Grouping logic for identical message/type
+        const groups = new Map();
+        data.notifications.forEach(n => {
+            const key = `${n.type}|${n.message}`;
+            if (!groups.has(key)) {
+                groups.set(key, {
+                    type: n.type,
+                    message: n.message,
+                    count: 1,
+                    latestTime: new Date(n.createdAt),
+                    isRead: n.isRead,
+                    id: n.id
+                });
+            } else {
+                const g = groups.get(key);
+                g.count++;
+                const time = new Date(n.createdAt);
+                if (time > g.latestTime) {
+                    g.latestTime = time;
+                    g.id = n.id;
+                }
+                if (!n.isRead) g.isRead = false;
+            }
+        });
+
+        const sortedGroups = Array.from(groups.values()).sort((a, b) => b.latestTime - a.latestTime);
+
+        const html = sortedGroups.length === 0 
+            ? '<div class="p-12 text-center text-[var(--text-secondary)] text-sm italic">No new notifications 🎉</div>'
+            : sortedGroups.map(g => {
+                let bgColor, borderColor, iconColor, iconBg, icon;
+                const type = g.type.toLowerCase();
+
+                if (type === 'data_reminder' || g.message.includes('bed data')) {
+                    borderColor = '#F59E0B'; icon = '🔔'; bgColor = '#FFFBEB'; iconBg = '#FEF3C7';
+                } else if (g.message.includes('no available hospital')) {
+                    borderColor = '#EF4444'; icon = '⚠️'; bgColor = '#FFF5F5'; iconBg = '#FEE2E2';
+                } else if (g.message.includes('rejected')) {
+                    borderColor = '#EF4444'; icon = '✕'; bgColor = '#FFF5F5'; iconBg = '#FEE2E2';
+                } else if (g.message.includes('approved')) {
+                    borderColor = '#22C55E'; icon = '✓'; bgColor = '#F0FDF4'; iconBg = '#DCFCE7';
+                } else if (type === 'transfer_request' || g.message.includes('transfer request')) {
+                    borderColor = '#004ac6'; icon = '🔄'; bgColor = '#EFF6FF'; iconBg = '#DBEAFE';
+                } else if (g.message.includes('checking doctor')) {
+                    borderColor = '#8B5CF6'; icon = '🔍'; bgColor = '#F5F3FF'; iconBg = '#EDE9FE';
+                } else {
+                    borderColor = '#94A3B8'; icon = 'ℹ️'; bgColor = '#F8FAFC'; iconBg = '#F1F5F9';
+                }
+
+                const d = g.latestTime;
+                const formattedDate = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) + ' · ' + d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+
+                return `
+                <div style="background: ${bgColor}; border-left: 4px solid ${borderColor}; border-radius: 12px; padding: 16px 20px; margin-bottom: 12px; display: flex; align-items: flex-start; gap: 16px; box-shadow: 0 2px 5px rgba(0,0,0,0.04); transition: all 0.2s;" class="hover:translate-x-1 cursor-pointer ${g.isRead ? '' : 'ring-2 ring-primary/5 shadow-lg'}" onclick="markAsRead(${g.id})">
+                    <div style="width: 40px; height: 40px; border-radius: 50%; background: ${iconBg}; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 18px; border: 1px solid white;">${icon}</div>
+                    <div style="flex: 1;">
+                        <div style="display:flex; align-items:center; gap:8px; margin-bottom: 4px;">
+                            <p style="margin: 0; font-size: 14px; color: #0F172A; font-weight: 700; line-height: 1.4;">${g.message}</p>
+                            ${g.count > 1 ? `<span style="background: #E2E8F0; color: #475569; font-size: 11px; font-weight: 800; padding: 2px 10px; border-radius: 20px; flex-shrink:0;">×${g.count}</span>` : ''}
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 6px; color: #64748B; font-size: 11px; font-weight: 600;">
+                            <span>🕐 ${formattedDate}</span>
+                            ${!g.isRead ? '<span style="width: 6px; height: 6px; background: var(--primary); border-radius: 50%; display: inline-block;"></span>' : ''}
+                        </div>
                     </div>
                 </div>
-            `).join('');
+                `;
+            }).join('');
 
         if (list) list.innerHTML = html;
         if (fullList) fullList.innerHTML = html;
 
-        // Update badge
-        const badge = document.getElementById('headerNotifBadge');
-        const navBadge = document.getElementById('navNotifBadge');
-        if (badge) {
-            badge.textContent = data.unreadCount;
-            badge.style.display = data.unreadCount > 0 ? 'flex' : 'none';
+        // Update badge counts (Header & Sidebar)
+        const headerBadge = document.getElementById('headerNotifBadge');
+        const sidebarBadge = document.getElementById('navNotifBadge');
+        if (headerBadge) {
+            headerBadge.textContent = data.unreadCount;
+            headerBadge.style.display = data.unreadCount > 0 ? 'flex' : 'none';
         }
-        if (navBadge) {
-            navBadge.textContent = data.unreadCount;
-            navBadge.style.display = data.unreadCount > 0 ? 'flex' : 'none';
+        if (sidebarBadge) {
+            sidebarBadge.textContent = data.unreadCount;
+            sidebarBadge.style.display = data.unreadCount > 0 ? 'flex' : 'none';
         }
 
     } catch (err) {
@@ -898,10 +961,41 @@ async function renderNotifications() {
     }
 }
 
-async function markAsRead(id) {
-    await apiPut(`/notifications/${id}/read`);
-    renderNotifications();
+function toggleNotificationGroup(id, btn) {
+    const el = document.getElementById(id);
+    if (el) {
+        el.classList.toggle('active');
+        btn.classList.toggle('expanded');
+    }
 }
+
+async function markAsRead(id) {
+    try {
+        await apiPut(`/notifications/${id}/read`);
+        renderNotifications();
+    } catch (err) {
+        console.error("Mark as read failed:", err);
+    }
+}
+
+async function clearAllNotifications() {
+    const hospitalId = getHospitalId();
+    if (!hospitalId) return;
+    try {
+        showLoading(true);
+        await apiPut(`/notifications/read-all/${hospitalId}`);
+        renderNotifications();
+        showToast("All notifications cleared!", "success");
+    } catch (err) {
+        console.error("Clear all failed:", err);
+        showToast("Failed to clear notifications", "error");
+    } finally {
+        showLoading(false);
+    }
+}
+
+window.toggleNotificationGroup = toggleNotificationGroup;
+window.clearAllNotifications = clearAllNotifications;
 
 // Global logout click listener
 document.getElementById('logoutLink')?.addEventListener('click', handleLogout);
