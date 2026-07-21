@@ -149,8 +149,8 @@ Hospisync-backend/
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/sambodhit135/hospisync-backend.git
-cd hospisync-backend
+git clone https://github.com/parth1644/HospiSync.git
+cd HospiSync
 ```
 
 ### 2. Configure the Database
@@ -172,15 +172,13 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-
-jwt:
-  secret: your_jwt_secret_key
-
-spring:
   mail:
     host: smtp.gmail.com
     username: your_email@gmail.com
     password: your_app_password
+
+jwt:
+  secret: your_jwt_secret_key
 ```
 
 ### 3. Run the Application
@@ -246,8 +244,8 @@ Customizable 3-step onboarding flow to define departments and exact bed capaciti
 
 ## 👨‍💻 Author
 
-**Sambodhit** — Full Stack Developer  
-📧 [GitHub Profile](https://github.com/sambodhit135)
+**Parth** — Full Stack Developer  
+📧 [GitHub Profile](https://github.com/parth1644)
 
 ---
 
@@ -258,5 +256,3 @@ This project is licensed under the MIT License.
 ---
 
 > ⭐ If you found this project useful, please consider giving it a star on GitHub!
-#   h o s p i s y n c - b a c k e n d  
- 
